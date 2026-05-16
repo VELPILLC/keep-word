@@ -16,8 +16,8 @@ const CSS = `
   :root {
     --bg:#241712; --border:#3E2919; --text:#E4D9CF; --text-dim:#9A8878;
     --text-mute:#614838; --accent:#D4A246; --red:#8B3A3A;
-    --done-bg:#251C0A; --done-text:#D4A246; --nn-bg:#1D1820;
-    --nn-border:#28222F; --input-bg:#2A1C10;
+    --done-bg:#251C0A; --done-text:#D4A246; --nn-bg:#1E1B19;
+    --nn-border:#231E1B; --input-bg:#2A1C10;
     --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --tr:140ms ease;
   }
   html { height:100%; width:100%; overflow:hidden; position:fixed; top:0; left:0;
@@ -76,6 +76,7 @@ const CSS = `
     padding:0 56px 0 16px; display:flex; flex-direction:column;
     justify-content:center; position:relative; cursor:pointer;
     -webkit-tap-highlight-color:transparent; touch-action:none;
+    user-select:none; -webkit-user-select:none;
     transition:background var(--tr),opacity var(--tr); }
   .pri-block.editing { background:var(--input-bg); cursor:default; }
   .pri-block.done { background:var(--done-bg); opacity:0.58; }
@@ -114,10 +115,10 @@ const CSS = `
     transition:opacity var(--tr); }
   .nn-block.done { opacity:0.4; }
   .nn-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
-    color:#3E3650; margin-bottom:4px; }
+    color:#2C2725; margin-bottom:4px; }
   .nn-title { font-size:clamp(14px,3.6vw,19px); font-weight:400; line-height:1.2;
-    color:#8A8098; letter-spacing:-0.01em; }
-  .nn-block.done .nn-title { text-decoration:line-through; color:#3E3650; }
+    color:#504846; letter-spacing:-0.01em; }
+  .nn-block.done .nn-title { text-decoration:line-through; color:#2C2725; }
 
   /* LOWER */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
@@ -185,10 +186,16 @@ const CSS = `
   .task-list { flex:1; overflow-y:auto; overflow-x:hidden;
     -webkit-overflow-scrolling:touch; touch-action:pan-y; }
   .task-list::-webkit-scrollbar { display:none; }
+  .task-swipe-wrap { position:relative; overflow:hidden; }
+  .task-delete-bg { position:absolute; inset:0; background:var(--red);
+    display:flex; align-items:center; padding-left:16px; }
+  .task-delete-label { font-family:var(--mono); font-size:8px; letter-spacing:0.12em;
+    color:rgba(255,255,255,0.55); text-transform:uppercase; }
   .task-row { display:flex; align-items:center; padding:12px; gap:9px;
     border-bottom:1px solid var(--border); cursor:pointer;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation;
-    transition:background var(--tr),opacity var(--tr); }
+    background:var(--bg); position:relative; z-index:1;
+    transition:opacity var(--tr); }
   .task-row:active { background:rgba(255,255,255,0.02); }
   .task-row.done { opacity:0.42; }
   .task-row.assigned { opacity:0.3; }
@@ -287,12 +294,7 @@ const DEFAULT_NN = [
   { id: "nn3", title: "Journal and reflect", done: false },
 ];
 
-const DEFAULT_TASKS = {
-  Work:     [{ id:"w1", text:"Deep work — no interruptions", done:false }, { id:"w2", text:"Clear inbox", done:false }, { id:"w3", text:"Review open projects", done:false }],
-  Personal: [{ id:"p1", text:"Call someone you owe a call", done:false }, { id:"p2", text:"Handle one personal errand", done:false }],
-  Business: [{ id:"b1", text:"Move one deal forward", done:false }, { id:"b2", text:"Follow up on open loops", done:false }, { id:"b3", text:"Check financials", done:false }],
-  Life:     [{ id:"l1", text:"Sleep by target time", done:false }, { id:"l2", text:"Move — 20 min minimum", done:false }, { id:"l3", text:"Prepare tomorrow", done:false }],
-};
+const EMPTY_TASKS = { Work: [], Personal: [], Business: [], Life: [] };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLAUDE PROXY
@@ -370,7 +372,7 @@ export default function App() {
   const [nn, setNn] = useState(() => LS.get("kw_nn", DEFAULT_NN));
 
   // ── TASKS ──────────────────────────────────────────────────────────────────
-  const [tasks, setTasks] = useState(DEFAULT_TASKS);
+  const [tasks, setTasks] = useState(EMPTY_TASKS);
   const [cat, setCat]     = useState("Work");
   const [adding, setAdding]   = useState(false);
   const [addText, setAddText] = useState("");
@@ -403,6 +405,9 @@ export default function App() {
   // Pointer handler refs so we can removeEventListener cleanly
   const onMoveRef = useRef(null);
   const onUpRef   = useRef(null);
+  // Swipe-to-delete state
+  const swipeRef        = useRef({ active: false, startX: 0, startY: 0, locked: false, translateX: 0, taskId: null, catName: null, rowEl: null });
+  const swipeWasSwipe   = useRef(false);
 
   // Keep mirrors in sync
   useEffect(() => { completedBarsRef.current = completedBars; }, [completedBars]);
@@ -493,7 +498,7 @@ export default function App() {
       setTasks(grouped);
       return grouped;
     }
-    return DEFAULT_TASKS;
+    return EMPTY_TASKS;
   }
 
   async function loadOverlay(userId, name) {
@@ -529,7 +534,7 @@ export default function App() {
         .order("created_at", { ascending: false }).limit(10);
 
       const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
-      const source    = tasksData || DEFAULT_TASKS;
+      const source    = tasksData || EMPTY_TASKS;
       const doneTasks    = Object.entries(source).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
       const pendingTasks = Object.entries(source).flatMap(([c, list]) => list.filter(t => !t.done).map(t => `${t.text} (${c})`));
 
@@ -835,14 +840,30 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
       setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: false } : t) }));
     }
     const emptyIdx = priorities.findIndex(s => !s.title);
-    if (emptyIdx === -1) { showToast("all 3 slots filled"); return; }
+    if (emptyIdx !== -1) {
+      // Use the empty slot
+      setPriorities(p => p.map((s, i) =>
+        i === emptyIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
+      ));
+      setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: true } : t) }));
+      if (user) supabase.from("tasks").update({ from_slot: true }).eq("id", task.id);
+      if (navigator.vibrate) navigator.vibrate(10);
+      showToast(`→ priority ${emptyIdx + 1}`);
+      return;
+    }
+    // No empty slot — check for a done slot and replace it
+    const doneIdx = priorities.findIndex(s => s.done);
+    if (doneIdx === -1) { showToast("all 3 slots filled"); return; }
+    const doneSlot = priorities[doneIdx];
+    const bar = { id: `bar_${Date.now()}`, title: doneSlot.title, sourceId: doneSlot.sourceId, sourceCat: doneSlot.sourceCat };
+    setCompletedBars(prev => [...prev, bar]);
     setPriorities(p => p.map((s, i) =>
-      i === emptyIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
+      i === doneIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
     ));
     setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: true } : t) }));
     if (user) supabase.from("tasks").update({ from_slot: true }).eq("id", task.id);
     if (navigator.vibrate) navigator.vibrate(10);
-    showToast(`→ priority ${emptyIdx + 1}`);
+    showToast(`→ priority ${doneIdx + 1}`);
   }
 
   function toggleTask(catName, id) {
@@ -926,6 +947,69 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
   function showToast(msg) {
     setToast({ show: true, msg });
     setTimeout(() => setToast({ show: false, msg: "" }), 2000);
+  }
+
+  // ── SWIPE-TO-DELETE ────────────────────────────────────────────────────────
+
+  function deleteTask(catName, taskId) {
+    setTasks(p => ({ ...p, [catName]: (p[catName] || []).filter(t => t.id !== taskId) }));
+    // Clear from priority slots if present
+    setPriorities(p => p.map(s => s.sourceId === taskId ? EMPTY_SLOT() : s));
+    if (user) supabase.from("tasks").delete().eq("id", taskId);
+    showToast("deleted");
+  }
+
+  function startTaskSwipe(e, task, catName) {
+    // Only handle primary pointer, and only when not inside the add row
+    if (e.button !== 0 && e.pointerType !== "touch" && e.pointerType !== "pen") return;
+    const rowEl = e.currentTarget.querySelector(".task-row");
+    if (!rowEl) return;
+
+    const s = swipeRef.current;
+    s.active = true; s.startX = e.clientX; s.startY = e.clientY;
+    s.locked = false; s.translateX = 0;
+    s.taskId = task.id; s.catName = catName; s.rowEl = rowEl;
+
+    function onMove(ev) {
+      if (!s.active) return;
+      const dx = ev.clientX - s.startX;
+      const dy = ev.clientY - s.startY;
+      if (!s.locked) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (Math.abs(dy) > Math.abs(dx)) { s.active = false; cleanup(); return; }
+        s.locked = true;
+      }
+      if (dx <= 0) { rowEl.style.transform = "translateX(0)"; return; }
+      s.translateX = dx;
+      rowEl.style.transform = `translateX(${dx}px)`;
+    }
+
+    function onUp() {
+      cleanup();
+      if (!s.active) return;
+      const wasLocked = s.locked;
+      s.active = false;
+      if (!wasLocked) return;
+      swipeWasSwipe.current = true;
+      const rowWidth = rowEl.offsetWidth || 300;
+      if (s.translateX >= rowWidth * 0.9) {
+        deleteTask(s.catName, s.taskId);
+      } else {
+        rowEl.style.transition = "transform 200ms ease";
+        rowEl.style.transform  = "translateX(0)";
+        setTimeout(() => { rowEl.style.transition = ""; }, 210);
+      }
+    }
+
+    function cleanup() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointercancel", onUp);
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointercancel", onUp);
   }
 
   const currentTasks = tasks[cat] || [];
@@ -1028,6 +1112,7 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
                 ].filter(Boolean).join(" ")}
                 onPointerDown={e => onSlotPointerDown(e, i)}
                 onPointerUp={() => onSlotPointerUp()}
+                onContextMenu={e => e.preventDefault()}
                 onClick={() => { if (!isEditing) tapSlotBody(i); }}>
 
                 <div className="pri-num">0{i + 1}</div>
@@ -1144,13 +1229,25 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
               ))}
             </div>
             <div className="task-list">
+              {currentTasks.length === 0 && (
+                <div style={{ padding:"20px 12px", fontFamily:"var(--mono)", fontSize:"9px",
+                  letterSpacing:"0.1em", color:"var(--text-mute)", lineHeight:1.7 }}>
+                  no tasks yet · tap + add
+                </div>
+              )}
               {currentTasks.map(t => (
-                <div key={t.id}
-                  className={`task-row ${t.done ? "done" : ""} ${t.fromSlot && !t.done ? "assigned" : ""}`}
-                  onClick={() => tapTask(t, cat)}>
-                  <div className="task-dot" />
-                  <div className="task-text">{t.text}</div>
-                  {!t.done && !t.fromSlot && <div className="task-up">↑</div>}
+                <div key={t.id} className="task-swipe-wrap"
+                  onPointerDown={e => startTaskSwipe(e, t, cat)}>
+                  <div className="task-delete-bg">
+                    <span className="task-delete-label">delete</span>
+                  </div>
+                  <div
+                    className={`task-row ${t.done ? "done" : ""} ${t.fromSlot && !t.done ? "assigned" : ""}`}
+                    onClick={() => { if (swipeWasSwipe.current) { swipeWasSwipe.current = false; return; } tapTask(t, cat); }}>
+                    <div className="task-dot" />
+                    <div className="task-text">{t.text}</div>
+                    {!t.done && !t.fromSlot && <div className="task-up">↑</div>}
+                  </div>
                 </div>
               ))}
               {adding ? (

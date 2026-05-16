@@ -108,32 +108,39 @@ const CSS = `
   .journal-col { width:48%; display:flex; flex-direction:column;
     border-right:1px solid var(--border); min-height:0; position:relative; }
 
-  /* Journal mode tabs */
-  .j-mode-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
-  .j-mode-tab { flex:1; padding:8px 2px; font-family:var(--mono); font-size:7px;
-    letter-spacing:0.1em; text-transform:uppercase; color:var(--text-mute);
-    background:none; border:none; border-right:1px solid var(--border);
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
-    transition:color var(--tr),background var(--tr); }
-  .j-mode-tab:last-child { border-right:none; }
-  .j-mode-tab.active { color:var(--text); background:rgba(255,255,255,0.016); }
+  /* Reflection question bar */
+  .refl-bar { flex-shrink:0; padding:10px 14px 9px; border-bottom:1px solid var(--border);
+    min-height:38px; display:flex; flex-direction:column; justify-content:center;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .refl-bar-loading { display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:var(--text-mute); }
+  .refl-bar-prog { font-family:var(--mono); font-size:7px; letter-spacing:0.1em;
+    color:var(--text-mute); margin-bottom:5px; }
+  .refl-bar-text { font-size:11px; font-weight:300; line-height:1.5; color:var(--text-dim); }
 
-  /* Notes mode */
+  /* Journal textarea */
   .journal-area { flex:1; background:transparent; border:none; color:var(--text);
     font-family:var(--font); font-size:16px; font-weight:300; line-height:1.7;
-    padding:14px 14px 44px; resize:none; outline:none; caret-color:var(--accent);
+    padding:12px 14px; resize:none; outline:none; caret-color:var(--accent);
     overflow-y:auto; -webkit-overflow-scrolling:touch; user-select:text; touch-action:pan-y; }
   .journal-area::-webkit-scrollbar { display:none; }
   .journal-area::placeholder { color:var(--text-mute); font-size:13px; }
-  .journal-foot { position:absolute; bottom:0; left:0; right:0; padding:7px 12px;
-    border-top:1px solid var(--border); background:var(--bg);
-    display:flex; align-items:center; justify-content:space-between; }
-  .reflect-btn { background:none; border:1px solid var(--border); color:var(--text-mute);
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 12px;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+
+  /* Journal footer */
+  .journal-foot { flex-shrink:0; padding:7px 12px; border-top:1px solid var(--border);
+    background:var(--bg); display:flex; align-items:center; gap:8px; }
   .mic-btn { background:none; border:none; color:var(--text-mute); font-size:14px;
     cursor:pointer; line-height:1; padding:4px;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .reflect-btn { background:none; border:1px solid var(--border); color:var(--text-mute);
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 12px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .save-btn { background:none; border:1px solid var(--accent); color:var(--accent);
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 14px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    margin-left:auto; }
+
+  /* AI observation panel */
   .ai-panel { position:absolute; inset:0; background:var(--bg); padding:14px;
     display:flex; flex-direction:column; gap:12px; overflow-y:auto;
     transform:translateY(100%); transition:transform 260ms ease; touch-action:pan-y; }
@@ -146,39 +153,6 @@ const CSS = `
     -webkit-tap-highlight-color:transparent; }
   .ai-body { font-size:13px; font-weight:300; line-height:1.72;
     color:var(--text-dim); white-space:pre-wrap; }
-
-  /* Reflection mode */
-  .refl-wrap { flex:1; display:flex; flex-direction:column; min-height:0; }
-  .refl-idle { flex:1; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .refl-idle-label { font-family:var(--mono); font-size:9px; letter-spacing:0.14em;
-    color:var(--text-mute); text-transform:uppercase; }
-  .refl-generating { flex:1; display:flex; align-items:center; justify-content:center;
-    gap:10px; font-family:var(--mono); font-size:9px; letter-spacing:0.1em; color:var(--text-mute); }
-  .refl-q-panel { flex:1; display:flex; flex-direction:column; min-height:0; }
-  .refl-q-top { padding:12px 14px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
-  .refl-q-prog { font-family:var(--mono); font-size:7.5px; letter-spacing:0.1em;
-    color:var(--text-mute); margin-bottom:8px; }
-  .refl-q-text { font-size:13px; font-weight:300; line-height:1.6; color:var(--text); }
-  .refl-answer { flex:1; background:transparent; border:none; color:var(--text);
-    font-family:var(--font); font-size:16px; font-weight:300; line-height:1.7;
-    padding:12px 14px; resize:none; outline:none; caret-color:var(--accent);
-    overflow-y:auto; -webkit-overflow-scrolling:touch; user-select:text; touch-action:pan-y; }
-  .refl-answer::-webkit-scrollbar { display:none; }
-  .refl-answer::placeholder { color:var(--text-mute); }
-  .refl-footer { padding:7px 12px; border-top:1px solid var(--border); flex-shrink:0;
-    display:flex; justify-content:flex-end; }
-  .refl-next-btn { background:none; border:1px solid var(--border); color:var(--text-mute);
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 16px;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .refl-done { flex:1; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:10px; padding:20px; text-align:center; }
-  .refl-done-label { font-family:var(--mono); font-size:9px; letter-spacing:0.14em;
-    color:var(--text-mute); text-transform:uppercase; }
-  .refl-done-note { font-size:11px; font-weight:300; color:var(--text-mute); line-height:1.6; }
-  .refl-again { background:none; border:1px solid var(--border); color:var(--text-mute);
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 16px;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; margin-top:4px; }
 
   /* RIGHT — tasks */
   .task-col { flex:1; display:flex; flex-direction:column; min-height:0; }
@@ -377,25 +351,22 @@ export default function App() {
   const [addText, setAddText] = useState("");
 
   // ── JOURNAL ────────────────────────────────────────────────────────────────
-  const [journalMode, setJournalMode] = useState("notes"); // "notes" | "reflection"
   const [journal, setJournal]         = useState("");
+  const [journalSaving, setJournalSaving] = useState(false);
   const [aiText, setAiText]           = useState(null);
   const [aiOpen, setAiOpen]           = useState(false);
   const [aiLoading, setAiLoading]     = useState(false);
 
-  // ── REFLECTION ─────────────────────────────────────────────────────────────
-  const [reflStep, setReflStep]           = useState(null); // null | generating | questioning | done
+  // ── REFLECTION QUESTIONS (auto-populated) ──────────────────────────────────
+  const [reflLoading, setReflLoading]     = useState(false);
   const [reflQuestions, setReflQuestions] = useState([]);
   const [reflIdx, setReflIdx]             = useState(0);
-  const [reflAnswers, setReflAnswers]     = useState([]);
-  const [reflAnswer, setReflAnswer]       = useState("");
 
   // ── TOAST ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState({ show: false, msg: "" });
 
   const slotRefs   = [useRef(null), useRef(null), useRef(null)];
   const addTextRef = useRef("");
-  const reflAnsRef = useRef(null);
 
   useEffect(() => { addTextRef.current = addText; }, [addText]);
   useEffect(() => { LS.set("kw_nn", nn); }, [nn]);
@@ -408,9 +379,11 @@ export default function App() {
           setUser(session.user);
           setAuthed(true);
           const name = session.user.user_metadata?.name || session.user.email.split("@")[0];
-          // load in parallel
-          loadTasks(session.user.id);
+          // Load tasks first so we can pass live data to loadQuestions
+          const tasksData = await loadTasks(session.user.id);
+          // These can run in parallel
           loadOverlay(session.user.id, name);
+          loadQuestions(session.user.id, tasksData);
         } else {
           setUser(null);
           setAuthed(false);
@@ -424,12 +397,9 @@ export default function App() {
     if (editingSlot >= 0) setTimeout(() => slotRefs[editingSlot]?.current?.focus(), 60);
   }, [editingSlot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (reflStep === "questioning") setTimeout(() => reflAnsRef.current?.focus(), 60);
-  }, [reflStep, reflIdx]);
-
   // ── DATA LOADING ───────────────────────────────────────────────────────────
 
+  // Returns grouped tasks data so callers can use it immediately (avoids stale state)
   async function loadTasks(userId) {
     const { data, error } = await supabase
       .from("tasks")
@@ -446,13 +416,14 @@ export default function App() {
             id: t.id,
             text: t.text,
             done: t.done,
-            fromSlot: false, // slots don't persist across sessions
+            fromSlot: false,
           });
         }
       });
       setTasks(grouped);
+      return grouped;
     }
-    // 0 rows = new user, DEFAULT_TASKS stays as the initial hint
+    return DEFAULT_TASKS;
   }
 
   async function loadOverlay(userId, name) {
@@ -481,6 +452,50 @@ export default function App() {
       setOverlaySummary("Keep your word.\nFinish what you start.");
     }
     setOvLoading(false);
+  }
+
+  // Auto-populate reflection questions on login based on tasks + time + memories
+  async function loadQuestions(userId, tasksData) {
+    setReflLoading(true);
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const { data: memories } = await supabase
+        .from("memories")
+        .select("summary")
+        .eq("user_id", userId)
+        .gte("memory_date", since)
+        .order("created_at", { ascending: false })
+        .limit(7);
+
+      const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
+      const source = tasksData || DEFAULT_TASKS;
+      const doneTasks    = Object.entries(source).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
+      const pendingTasks = Object.entries(source).flatMap(([c, list]) => list.filter(t => !t.done).map(t => `${t.text} (${c})`));
+
+      const ctx = [
+        `Time of day: ${getGreeting()}`,
+        doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
+        pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
+        recentCtx           ? `Recent context: ${recentCtx}` : "",
+      ].filter(Boolean).join("\n");
+
+      const result = await callClaude(
+        `Generate 3 to 5 specific, thoughtful reflection questions for someone at this point in their day.
+Ground every question in the context provided — completed tasks, pending items, time of day, recent life context.
+Make them introspective but practical. No generic questions.
+Return a valid JSON array only — no other text: ["Question 1?","Question 2?","Question 3?"]`,
+        ctx, 400
+      );
+
+      const match = result.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("no array");
+      const questions = JSON.parse(match[0]);
+      if (Array.isArray(questions) && questions.length > 0) {
+        setReflQuestions(questions);
+        setReflIdx(0);
+      }
+    } catch { /* silent — questions are non-critical, textarea still works */ }
+    setReflLoading(false);
   }
 
   // ── AUTH HANDLERS ──────────────────────────────────────────────────────────
@@ -543,7 +558,6 @@ export default function App() {
     const existing = priorities[idx];
     if (!text) return;
 
-    // Remove previous task for this slot if it was typed directly (not promoted)
     if (existing.title && existing.sourceId && existing.sourceCat) {
       setTasks(p => ({
         ...p,
@@ -552,7 +566,6 @@ export default function App() {
       if (user) await supabase.from("tasks").delete().eq("id", existing.sourceId);
     }
 
-    // Show title immediately while we detect category
     setPriorities(p => p.map((s, i) =>
       i === idx ? { title: text, done: false, sourceId: null, sourceCat: null } : s
     ));
@@ -561,7 +574,6 @@ export default function App() {
     const detectedCat = await detectCategory(text);
     setDetecting(prev => { const n = [...prev]; n[idx] = false; return n; });
 
-    // Insert task in DB, use the UUID as canonical ID
     let taskId = `s${idx}_${Date.now()}`;
     if (user) {
       const { data } = await supabase.from("tasks").insert({
@@ -648,13 +660,17 @@ export default function App() {
 
   // ── JOURNAL LOGIC ──────────────────────────────────────────────────────────
 
-  // Save entry to DB, then fire-and-forget memory compression
+  // Save entry to Supabase journal_entries table, then compress to memory
   async function saveJournalEntry(text, type) {
     if (!user || !text.trim()) return;
-    await supabase.from("journal_entries").insert({
-      user_id: user.id, raw_text: text, entry_type: type,
+    const { error } = await supabase.from("journal_entries").insert({
+      user_id: user.id,
+      raw_text: text.trim(),
+      entry_type: type,
     });
-    compressToMemory(text); // background — does not block
+    if (!error) {
+      compressToMemory(text); // background — does not block
+    }
   }
 
   async function compressToMemory(text) {
@@ -680,18 +696,24 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
     } catch { /* silent — memory compression is non-critical */ }
   }
 
-  function handleJournalKey(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (journal.trim()) saveJournalEntry(journal, "note");
-      setJournal("");
+  // Save journal entry to DB, clear textarea, advance question
+  async function submitJournal() {
+    if (!journal.trim()) { showToast("write something first"); return; }
+    setJournalSaving(true);
+    await saveJournalEntry(journal, "note");
+    setJournal("");
+    setJournalSaving(false);
+    showToast("saved");
+    // Cycle to next question
+    if (reflQuestions.length > 0) {
+      setReflIdx(i => (i + 1) % reflQuestions.length);
     }
   }
 
+  // AI observation panel — analyzes current journal text without saving
   async function reflect() {
     if (!journal.trim()) { showToast("write something first"); return; }
     setAiLoading(true); setAiOpen(true); setAiText(null);
-    await saveJournalEntry(journal, "note");
     try {
       const text = await callClaude(
         `Observational system. Plain text only.\n\nPatterns:\n[2 lines]\n\nUnresolved:\n[1-2 lines]\n\nTomorrow:\n[1-2 lines]\n\nUnder 60 words. Calm, factual.`,
@@ -700,76 +722,6 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
       setAiText(text);
     } catch { setAiText("Could not process."); }
     setAiLoading(false);
-  }
-
-  // ── REFLECTION LOGIC ───────────────────────────────────────────────────────
-
-  async function startReflection() {
-    setReflStep("generating");
-    setReflAnswers([]); setReflIdx(0); setReflAnswer("");
-    try {
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const { data: memories } = user
-        ? await supabase.from("memories").select("summary")
-            .eq("user_id", user.id).gte("memory_date", since)
-            .order("created_at", { ascending: false }).limit(7)
-        : { data: [] };
-
-      const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
-
-      const doneTasks    = Object.entries(tasks).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
-      const pendingTasks = Object.entries(tasks).flatMap(([c, list]) => list.filter(t => !t.done && !t.fromSlot).map(t => `${t.text} (${c})`));
-
-      const ctx = [
-        `Time of day: ${getGreeting()}`,
-        doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
-        pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
-        recentCtx           ? `Recent context: ${recentCtx}` : "",
-      ].filter(Boolean).join("\n");
-
-      const result = await callClaude(
-        `Generate 3 to 5 specific, thoughtful reflection questions for someone at this point in their day.
-Ground every question in the context provided — completed tasks, pending items, time of day, recent life context.
-Make them introspective but practical. No generic questions.
-Return a valid JSON array only — no other text: ["Question 1?","Question 2?","Question 3?"]`,
-        ctx, 400
-      );
-
-      const match = result.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error("no array");
-      const questions = JSON.parse(match[0]);
-      if (!Array.isArray(questions) || questions.length === 0) throw new Error("empty");
-
-      setReflQuestions(questions);
-      setReflStep("questioning");
-    } catch {
-      showToast("could not generate questions");
-      setReflStep(null);
-    }
-  }
-
-  function submitAnswer() {
-    if (!reflAnswer.trim()) return;
-    const updated = [...reflAnswers, { q: reflQuestions[reflIdx], a: reflAnswer.trim() }];
-    setReflAnswers(updated);
-    setReflAnswer("");
-    if (reflIdx + 1 < reflQuestions.length) {
-      setReflIdx(reflIdx + 1);
-    } else {
-      finishReflection(updated);
-    }
-  }
-
-  async function finishReflection(answers) {
-    setReflStep("done");
-    const fullText = answers.map(({ q, a }) => `Q: ${q}\nA: ${a}`).join("\n\n");
-    await saveJournalEntry(fullText, "reflection");
-    showToast("reflection saved");
-  }
-
-  function resetReflection() {
-    setReflStep(null); setReflQuestions([]); setReflIdx(0);
-    setReflAnswers([]); setReflAnswer("");
   }
 
   function showToast(msg) {
@@ -847,7 +799,7 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
             <button className={`flip-btn ${topMode === "priority" ? "active" : ""}`}
               onClick={() => setTopMode("priority")}>Daily</button>
             <button className={`flip-btn ${topMode === "nn" ? "active" : ""}`}
-              onClick={() => setTopMode("nn")}>Foundation</button>
+              onClick={() => setTopMode("nn")}>Non-Negotiables</button>
           </div>
         </div>
 
@@ -921,92 +873,57 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
           {/* JOURNAL COLUMN */}
           <div className="journal-col">
 
-            {/* Mode toggle */}
-            <div className="j-mode-tabs">
-              <button className={`j-mode-tab ${journalMode === "notes" ? "active" : ""}`}
-                onClick={() => { setJournalMode("notes"); setAiOpen(false); }}>
-                Notes
-              </button>
-              <button className={`j-mode-tab ${journalMode === "reflection" ? "active" : ""}`}
-                onClick={() => { setJournalMode("reflection"); setAiOpen(false); }}>
-                Reflect
-              </button>
-            </div>
-
-            {journalMode === "notes" ? (
-              /* ── NOTES MODE ── */
-              <>
-                <textarea className="journal-area"
-                  placeholder="Write anything. Enter to clear."
-                  value={journal}
-                  onChange={e => setJournal(e.target.value)}
-                  onKeyDown={handleJournalKey}
-                />
-                <div className="journal-foot">
-                  <button className="mic-btn" onClick={() => showToast("voice — coming soon")}>🎙</button>
-                  <button className="reflect-btn" onClick={reflect}>
-                    {aiLoading ? <span className="spin-sm" /> : "↑ reflect"}
-                  </button>
-                </div>
-                <div className={`ai-panel ${aiOpen ? "open" : ""}`}>
-                  <div className="ai-head">
-                    <div className="ai-label">Observed</div>
-                    <button className="ai-back" onClick={() => setAiOpen(false)}>← back</button>
+            {/* Reflection question bar — auto-populated on login, tap to cycle */}
+            {(reflLoading || reflQuestions.length > 0) && (
+              <div className="refl-bar"
+                onClick={() => !reflLoading && reflQuestions.length > 0 &&
+                  setReflIdx(i => (i + 1) % reflQuestions.length)}>
+                {reflLoading ? (
+                  <div className="refl-bar-loading">
+                    <span className="spin-sm" /> personalizing...
                   </div>
-                  {aiLoading
-                    ? <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text-mute)", fontSize: 12 }}>
-                        <span className="spin-sm" /> reading...
-                      </div>
-                    : <div className="ai-body">{aiText}</div>
-                  }
-                </div>
-              </>
-            ) : (
-              /* ── REFLECTION MODE ── */
-              <div className="refl-wrap">
-                {reflStep === null && (
-                  <div className="refl-idle" onClick={startReflection}>
-                    <div className="refl-idle-label">Begin reflection</div>
-                  </div>
-                )}
-
-                {reflStep === "generating" && (
-                  <div className="refl-generating">
-                    <span className="spin-sm" /> generating questions...
-                  </div>
-                )}
-
-                {reflStep === "questioning" && (
-                  <div className="refl-q-panel">
-                    <div className="refl-q-top">
-                      <div className="refl-q-prog">{reflIdx + 1} / {reflQuestions.length}</div>
-                      <div className="refl-q-text">{reflQuestions[reflIdx]}</div>
+                ) : (
+                  <>
+                    <div className="refl-bar-prog">
+                      {reflIdx + 1} / {reflQuestions.length} · tap to cycle
                     </div>
-                    <textarea ref={reflAnsRef} className="refl-answer"
-                      placeholder="Your answer..."
-                      value={reflAnswer}
-                      onChange={e => setReflAnswer(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); }
-                      }}
-                    />
-                    <div className="refl-footer">
-                      <button className="refl-next-btn" onClick={submitAnswer}>
-                        {reflIdx + 1 < reflQuestions.length ? "Next →" : "Finish"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {reflStep === "done" && (
-                  <div className="refl-done">
-                    <div className="refl-done-label">Saved</div>
-                    <div className="refl-done-note">Compressed into memory.</div>
-                    <button className="refl-again" onClick={resetReflection}>Reflect again</button>
-                  </div>
+                    <div className="refl-bar-text">{reflQuestions[reflIdx]}</div>
+                  </>
                 )}
               </div>
             )}
+
+            {/* Free-form textarea — always available regardless of questions */}
+            <textarea className="journal-area"
+              placeholder="Write anything..."
+              value={journal}
+              onChange={e => setJournal(e.target.value)}
+            />
+
+            {/* Footer: mic · reflect · save */}
+            <div className="journal-foot">
+              <button className="mic-btn" onClick={() => showToast("voice — coming soon")}>🎙</button>
+              <button className="reflect-btn" onClick={reflect}>
+                {aiLoading ? <span className="spin-sm" /> : "↑ reflect"}
+              </button>
+              <button className="save-btn" onClick={submitJournal}>
+                {journalSaving ? <span className="spin-sm" /> : "save"}
+              </button>
+            </div>
+
+            {/* AI observation panel — slides up over journal */}
+            <div className={`ai-panel ${aiOpen ? "open" : ""}`}>
+              <div className="ai-head">
+                <div className="ai-label">Observed</div>
+                <button className="ai-back" onClick={() => setAiOpen(false)}>← back</button>
+              </div>
+              {aiLoading
+                ? <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text-mute)", fontSize: 12 }}>
+                    <span className="spin-sm" /> reading...
+                  </div>
+                : <div className="ai-body">{aiText}</div>
+              }
+            </div>
           </div>
 
           {/* TASK COLUMN */}

@@ -3,6 +3,11 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+const BAR_H = 28; // px height of a completed task bar
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CSS
 // ─────────────────────────────────────────────────────────────────────────────
 const CSS = `
@@ -11,8 +16,8 @@ const CSS = `
   :root {
     --bg:#241712; --border:#3E2919; --text:#E4D9CF; --text-dim:#9A8878;
     --text-mute:#614838; --accent:#D4A246; --red:#8B3A3A;
-    --done-bg:#251C0A; --done-text:#D4A246; --nn-bg:#1F1A2A;
-    --nn-border:#3A3050; --input-bg:#2A1C10;
+    --done-bg:#251C0A; --done-text:#D4A246; --nn-bg:#1D1820;
+    --nn-border:#28222F; --input-bg:#2A1C10;
     --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --tr:140ms ease;
   }
   html { height:100%; width:100%; overflow:hidden; position:fixed; top:0; left:0;
@@ -54,17 +59,29 @@ const CSS = `
   .flip-btn+.flip-btn { border-left:1px solid var(--border); }
   .flip-btn.active { color:var(--text); background:rgba(255,255,255,0.04); }
 
-  /* TOP BLOCKS */
+  /* TOP BLOCKS — height auto so bars push lower section down */
   .top-wrap { flex-shrink:0; display:flex; flex-direction:column;
     border-top:1px solid var(--border); position:relative; overflow:hidden; }
-  .pri-block { height:33.333%; border-bottom:1px solid var(--border);
+
+  /* Completed task minimised bar */
+  .pri-bar { height:${BAR_H}px; flex-shrink:0; padding:0 14px;
+    display:flex; align-items:center; overflow:hidden;
+    background:#1B2B1B; border-bottom:1px solid #253525; }
+  .pri-bar-text { font-size:10px; font-weight:300; color:#527252;
+    text-decoration:line-through; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; letter-spacing:0.01em; }
+
+  /* Priority cards — fixed height so they never shrink */
+  .pri-block { height:calc((50dvh - 37px) / 3); border-bottom:1px solid var(--border);
     padding:0 56px 0 16px; display:flex; flex-direction:column;
     justify-content:center; position:relative; cursor:pointer;
-    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent; touch-action:none;
     transition:background var(--tr),opacity var(--tr); }
   .pri-block.editing { background:var(--input-bg); cursor:default; }
   .pri-block.done { background:var(--done-bg); opacity:0.58; }
   .pri-block.done .pri-title { text-decoration:line-through; color:var(--done-text); }
+  .pri-block.dragging { opacity:0.3; }
+  .pri-block.drag-target { background:rgba(255,255,255,0.05); }
   .pri-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
     color:var(--text-mute); margin-bottom:4px; }
   .pri-title { font-size:clamp(14px,3.6vw,19px); font-weight:400; line-height:1.2;
@@ -87,19 +104,20 @@ const CSS = `
   .pri-action-btn:last-child { border-bottom:none; }
   .pri-action-btn:active { background:rgba(255,255,255,0.04); }
 
-  /* NN panel */
+  /* NN panel — subtle desaturated purple */
   .nn-panel { position:absolute; inset:0; display:flex; flex-direction:column;
     background:var(--nn-bg); transform:translateX(100%); transition:transform 280ms ease; }
   .nn-panel.visible { transform:translateX(0); }
-  .nn-block { height:33.333%; border-bottom:1px solid var(--nn-border);
+  .nn-block { height:calc((50dvh - 37px) / 3); border-bottom:1px solid var(--nn-border);
     padding:0 16px; display:flex; flex-direction:column; justify-content:center;
     cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     transition:opacity var(--tr); }
-  .nn-block.done { opacity:0.48; }
-  .nn-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:#6A5E80; margin-bottom:4px; }
+  .nn-block.done { opacity:0.4; }
+  .nn-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
+    color:#3E3650; margin-bottom:4px; }
   .nn-title { font-size:clamp(14px,3.6vw,19px); font-weight:400; line-height:1.2;
-    color:#C4B8D8; letter-spacing:-0.01em; }
-  .nn-block.done .nn-title { text-decoration:line-through; color:#6A5E80; }
+    color:#8A8098; letter-spacing:-0.01em; }
+  .nn-block.done .nn-title { text-decoration:line-through; color:#3E3650; }
 
   /* LOWER */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
@@ -181,7 +199,7 @@ const CSS = `
   .task-text { font-size:12px; font-weight:300; line-height:1.45;
     color:var(--text); flex:1; user-select:none; }
   .task-row.done .task-text { text-decoration:line-through; color:var(--text-mute); }
-  .task-up { font-size:14px; color:var(--accent); flex-shrink:0; line-height:1; padding:2px 0; }
+  .task-up { font-size:14px; color:#527252; flex-shrink:0; line-height:1; padding:2px 0; }
   .add-row { display:flex; align-items:stretch; border-bottom:1px solid var(--border); }
   .add-input { flex:1; background:none; border:none; color:var(--text);
     font-family:var(--font); font-size:16px; font-weight:300;
@@ -246,6 +264,8 @@ const LS = {
   get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
+
+function todayStr() { return new Date().toISOString().split("T")[0]; }
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -340,6 +360,11 @@ export default function App() {
   const [editingSlot, setEditingSlot] = useState(-1);
   const [slotInputs, setSlotInputs]   = useState(["", "", ""]);
   const [detecting, setDetecting]     = useState([false, false, false]);
+  const [completedBars, setCompletedBars] = useState(() => LS.get("kw_bars", []));
+
+  // ── DRAG ───────────────────────────────────────────────────────────────────
+  const [dragIdx, setDragIdx]   = useState(null); // slot being dragged
+  const [dragOver, setDragOver] = useState(null); // drop target slot
 
   // ── NN ─────────────────────────────────────────────────────────────────────
   const [nn, setNn] = useState(() => LS.get("kw_nn", DEFAULT_NN));
@@ -351,13 +376,13 @@ export default function App() {
   const [addText, setAddText] = useState("");
 
   // ── JOURNAL ────────────────────────────────────────────────────────────────
-  const [journal, setJournal]         = useState("");
+  const [journal, setJournal]             = useState("");
   const [journalSaving, setJournalSaving] = useState(false);
-  const [aiText, setAiText]           = useState(null);
-  const [aiOpen, setAiOpen]           = useState(false);
-  const [aiLoading, setAiLoading]     = useState(false);
+  const [aiText, setAiText]               = useState(null);
+  const [aiOpen, setAiOpen]               = useState(false);
+  const [aiLoading, setAiLoading]         = useState(false);
 
-  // ── REFLECTION QUESTIONS (auto-populated) ──────────────────────────────────
+  // ── REFLECTION QUESTIONS ───────────────────────────────────────────────────
   const [reflLoading, setReflLoading]     = useState(false);
   const [reflQuestions, setReflQuestions] = useState([]);
   const [reflIdx, setReflIdx]             = useState(0);
@@ -365,11 +390,64 @@ export default function App() {
   // ── TOAST ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState({ show: false, msg: "" });
 
-  const slotRefs   = [useRef(null), useRef(null), useRef(null)];
-  const addTextRef = useRef("");
+  // ── REFS ───────────────────────────────────────────────────────────────────
+  const slotRefs        = [useRef(null), useRef(null), useRef(null)];
+  const addTextRef      = useRef("");
+  const topWrapRef      = useRef(null);
+  // Mutable drag state (avoids closure stale-state issues in pointer handlers)
+  const dragState       = useRef({ active: false, startIdx: -1, dragOver: -1, timer: null });
+  const wasDraggingRef  = useRef(false);
+  // Mirrors of state for use inside pointer event callbacks
+  const completedBarsRef = useRef(completedBars);
+  const prioritiesRef    = useRef(priorities);
+  // Pointer handler refs so we can removeEventListener cleanly
+  const onMoveRef = useRef(null);
+  const onUpRef   = useRef(null);
+
+  // Keep mirrors in sync
+  useEffect(() => { completedBarsRef.current = completedBars; }, [completedBars]);
+  useEffect(() => { prioritiesRef.current = priorities; }, [priorities]);
 
   useEffect(() => { addTextRef.current = addText; }, [addText]);
+
+  // Persist NN order + done state
   useEffect(() => { LS.set("kw_nn", nn); }, [nn]);
+
+  // Persist completed bars
+  useEffect(() => { LS.set("kw_bars", completedBars); }, [completedBars]);
+
+  // ── DAILY SNAPSHOT (for AI memory) ─────────────────────────────────────────
+  useEffect(() => {
+    if (!authed) return;
+    LS.set("kw_daily", {
+      date: todayStr(),
+      priorities: priorities.map(p => ({ title: p.title, done: p.done })),
+      nn: nn.map(n => ({ id: n.id, title: n.title, done: n.done })),
+      completedBars: completedBars.map(b => ({ title: b.title })),
+    });
+  }, [priorities, nn, completedBars, authed]);
+
+  // ── MIDNIGHT / NEW-DAY RESET ───────────────────────────────────────────────
+  useEffect(() => {
+    function checkNewDay() {
+      const today  = todayStr();
+      const stored = LS.get("kw_last_date", "");
+      if (stored && stored !== today) {
+        // Save yesterday's memory, then reset
+        if (user) saveDailyMemory(stored);
+        setNn(p => p.map(x => ({ ...x, done: false })));
+        setCompletedBars([]);
+        // Incomplete priorities carry over; done slots become empty
+        setPriorities(p => p.map(s => s.done ? EMPTY_SLOT() : s));
+        LS.set("kw_last_date", today);
+      } else if (!stored) {
+        LS.set("kw_last_date", today);
+      }
+    }
+    checkNewDay();
+    const interval = setInterval(checkNewDay, 60_000);
+    return () => clearInterval(interval);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── SUPABASE AUTH LISTENER ─────────────────────────────────────────────────
   useEffect(() => {
@@ -379,9 +457,7 @@ export default function App() {
           setUser(session.user);
           setAuthed(true);
           const name = session.user.user_metadata?.name || session.user.email.split("@")[0];
-          // Load tasks first so we can pass live data to loadQuestions
           const tasksData = await loadTasks(session.user.id);
-          // These can run in parallel
           loadOverlay(session.user.id, name);
           loadQuestions(session.user.id, tasksData);
         } else {
@@ -399,7 +475,6 @@ export default function App() {
 
   // ── DATA LOADING ───────────────────────────────────────────────────────────
 
-  // Returns grouped tasks data so callers can use it immediately (avoids stale state)
   async function loadTasks(userId) {
     const { data, error } = await supabase
       .from("tasks")
@@ -412,12 +487,7 @@ export default function App() {
       CATS.forEach(c => { grouped[c] = []; });
       data.forEach(t => {
         if (grouped[t.category]) {
-          grouped[t.category].push({
-            id: t.id,
-            text: t.text,
-            done: t.done,
-            fromSlot: false,
-          });
+          grouped[t.category].push({ id: t.id, text: t.text, done: t.done, fromSlot: false });
         }
       });
       setTasks(grouped);
@@ -431,20 +501,15 @@ export default function App() {
     try {
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       const { data: memories } = await supabase
-        .from("memories")
-        .select("summary")
-        .eq("user_id", userId)
-        .gte("memory_date", since)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .from("memories").select("summary")
+        .eq("user_id", userId).gte("memory_date", since)
+        .order("created_at", { ascending: false }).limit(10);
 
       const context = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
-      const prompt  = context
-        ? `Name: ${name}. Recent context: ${context}`
-        : `Name: ${name}`;
+      const prompt  = context ? `Name: ${name}. Recent context: ${context}` : `Name: ${name}`;
 
       const text = await callClaude(
-        `Calm daily briefing. 1-2 lines plain text. No labels. Under 20 words. Grounded. Displayed very large.`,
+        `Calm daily briefing. Use any recent daily-summary memories to personalise (streaks, patterns, what they carried over). 1-2 lines plain text. No labels. Under 20 words. Grounded. Displayed very large.`,
         prompt
       );
       setOverlaySummary(text);
@@ -454,21 +519,17 @@ export default function App() {
     setOvLoading(false);
   }
 
-  // Auto-populate reflection questions on login based on tasks + time + memories
   async function loadQuestions(userId, tasksData) {
     setReflLoading(true);
     try {
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       const { data: memories } = await supabase
-        .from("memories")
-        .select("summary")
-        .eq("user_id", userId)
-        .gte("memory_date", since)
-        .order("created_at", { ascending: false })
-        .limit(7);
+        .from("memories").select("summary")
+        .eq("user_id", userId).gte("memory_date", since)
+        .order("created_at", { ascending: false }).limit(10);
 
       const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
-      const source = tasksData || DEFAULT_TASKS;
+      const source    = tasksData || DEFAULT_TASKS;
       const doneTasks    = Object.entries(source).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
       const pendingTasks = Object.entries(source).flatMap(([c, list]) => list.filter(t => !t.done).map(t => `${t.text} (${c})`));
 
@@ -476,14 +537,13 @@ export default function App() {
         `Time of day: ${getGreeting()}`,
         doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
         pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
-        recentCtx           ? `Recent context: ${recentCtx}` : "",
+        recentCtx           ? `Recent context (incl. daily summaries): ${recentCtx}` : "",
       ].filter(Boolean).join("\n");
 
       const result = await callClaude(
-        `Generate 3 to 5 specific, thoughtful reflection questions for someone at this point in their day.
-Ground every question in the context provided — completed tasks, pending items, time of day, recent life context.
-Make them introspective but practical. No generic questions.
-Return a valid JSON array only — no other text: ["Question 1?","Question 2?","Question 3?"]`,
+        `Generate 3 to 5 specific, thoughtful reflection questions grounded in this context.
+Reference completed/pending tasks, time of day, and any patterns from recent daily summaries.
+No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"]`,
         ctx, 400
       );
 
@@ -494,8 +554,39 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
         setReflQuestions(questions);
         setReflIdx(0);
       }
-    } catch { /* silent — questions are non-critical, textarea still works */ }
+    } catch { /* silent */ }
     setReflLoading(false);
+  }
+
+  // Save end-of-day summary to memories table
+  async function saveDailyMemory(date) {
+    if (!user) return;
+    try {
+      const snap = LS.get("kw_daily", null);
+      if (!snap) return;
+
+      const donePri  = snap.priorities?.filter(p => p.title && p.done).map(p => p.title)  || [];
+      const skipPri  = snap.priorities?.filter(p => p.title && !p.done).map(p => p.title) || [];
+      const bars     = snap.completedBars?.map(b => b.title) || [];
+      const doneNN   = snap.nn?.filter(n => n.done).map(n => n.title)  || [];
+      const skipNN   = snap.nn?.filter(n => !n.done).map(n => n.title) || [];
+
+      const parts = [
+        donePri.length  ? `Top 3 completed: ${donePri.join(", ")}` : "No Top 3 completed",
+        skipPri.length  ? `Carried over: ${skipPri.join(", ")}` : "",
+        bars.length     ? `Also completed (replaced): ${bars.join(", ")}` : "",
+        `Non-Negotiables ${doneNN.length}/3 done` + (doneNN.length ? ` (${doneNN.join(", ")})` : ""),
+        skipNN.length   ? `NN skipped: ${skipNN.join(", ")}` : "",
+      ].filter(Boolean).join(". ");
+
+      await supabase.from("memories").insert({
+        user_id: user.id,
+        keywords: ["daily-summary", date, ...donePri.slice(0, 3)],
+        summary: parts,
+        category: "daily",
+        memory_date: date,
+      });
+    } catch { /* silent */ }
   }
 
   // ── AUTH HANDLERS ──────────────────────────────────────────────────────────
@@ -508,31 +599,90 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
     try {
       if (authMode === "register") {
         const { error } = await supabase.auth.signUp({
-          email: af.email,
-          password: af.password,
+          email: af.email, password: af.password,
           options: { data: { name: af.name } },
         });
         if (error) { setAuthErr(error.message); return; }
         setAuthMsg("Check your email to confirm your account, then sign in.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: af.email,
-          password: af.password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email: af.email, password: af.password });
         if (error) { setAuthErr(error.message); }
-        // success → onAuthStateChange fires and handles the rest
       }
-    } catch {
-      setAuthErr("Something went wrong. Please try again.");
-    } finally {
-      setAuthLoading(false);
-    }
+    } catch { setAuthErr("Something went wrong. Please try again."); }
+    finally   { setAuthLoading(false); }
   }
 
   function dismissOverlay() {
     if (overlayLoading) return;
     setOverlayExit(true);
     setTimeout(() => setOverlayOn(false), 500);
+  }
+
+  // ── DRAG REORDER ───────────────────────────────────────────────────────────
+
+  function cleanupDrag() {
+    if (onMoveRef.current) window.removeEventListener("pointermove", onMoveRef.current);
+    if (onUpRef.current)   { window.removeEventListener("pointerup", onUpRef.current); window.removeEventListener("pointercancel", onUpRef.current); }
+    onMoveRef.current = null;
+    onUpRef.current   = null;
+  }
+
+  function onSlotPointerDown(e, idx) {
+    if (editingSlot !== -1) return;
+    if (!prioritiesRef.current[idx].title) return; // can't drag empty slot
+
+    const timer = setTimeout(() => {
+      dragState.current.active  = true;
+      dragState.current.dragOver = idx;
+      setDragIdx(idx);
+      setDragOver(idx);
+      if (navigator.vibrate) navigator.vibrate(20);
+
+      onMoveRef.current = (ev) => {
+        const wrap = topWrapRef.current;
+        if (!wrap) return;
+        const rect   = wrap.getBoundingClientRect();
+        const barsH  = completedBarsRef.current.length * BAR_H;
+        const activeH = rect.height - barsH;
+        const relY   = ev.clientY - rect.top - barsH;
+        const over   = Math.max(0, Math.min(2, Math.floor(relY / (activeH / 3))));
+        dragState.current.dragOver = over;
+        setDragOver(over);
+      };
+
+      onUpRef.current = () => {
+        cleanupDrag();
+        const from = dragState.current.startIdx;
+        const to   = dragState.current.dragOver;
+        if (dragState.current.active && from !== to && to >= 0) {
+          setPriorities(p => {
+            const next = [...p];
+            const [moved] = next.splice(from, 1);
+            next.splice(to, 0, moved);
+            return next;
+          });
+        }
+        wasDraggingRef.current = true;
+        dragState.current = { active: false, startIdx: -1, dragOver: -1, timer: null };
+        setDragIdx(null);
+        setDragOver(null);
+      };
+
+      window.addEventListener("pointermove", onMoveRef.current);
+      window.addEventListener("pointerup",   onUpRef.current);
+      window.addEventListener("pointercancel", onUpRef.current);
+    }, 400);
+
+    dragState.current = { active: false, startIdx: idx, dragOver: idx, timer };
+  }
+
+  function onSlotPointerUp() {
+    // If drag never activated, just cancel the timer
+    if (!dragState.current.active) {
+      clearTimeout(dragState.current.timer);
+      dragState.current = { active: false, startIdx: -1, dragOver: -1, timer: null };
+    }
+    // If active, the global onUpRef handles it
   }
 
   // ── SLOT LOGIC ─────────────────────────────────────────────────────────────
@@ -543,6 +693,7 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
   }
 
   function tapSlotBody(idx) {
+    if (wasDraggingRef.current) { wasDraggingRef.current = false; return; }
     if (editingSlot !== -1) return;
     const slot = priorities[idx];
     if (slot.title) {
@@ -553,11 +704,59 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
   }
 
   async function commitSlot(idx) {
-    const text = slotInputs[idx].trim();
-    setEditingSlot(-1);
+    const text     = slotInputs[idx].trim();
     const existing = priorities[idx];
+    setEditingSlot(-1);
     if (!text) return;
 
+    // ── REPLACE A COMPLETED SLOT → becomes a minimised bar ──────────────────
+    if (existing.done) {
+      // If user committed the same text, just un-mark done instead
+      if (text === existing.title) {
+        setPriorities(p => p.map((s, i) => i === idx ? { ...s, done: false } : s));
+        return;
+      }
+
+      // Archive the done slot as a completed bar
+      const bar = {
+        id: `bar_${Date.now()}`,
+        title: existing.title,
+        sourceId: existing.sourceId,
+        sourceCat: existing.sourceCat,
+      };
+      setCompletedBars(prev => [...prev, bar]);
+
+      // Remaining slots shift up, new task lands at index 2
+      const remaining = priorities.filter((_, i) => i !== idx);
+      const newPriorities = [
+        ...remaining,
+        { title: text, done: false, sourceId: null, sourceCat: null },
+      ].slice(0, 3);
+      setPriorities(newPriorities);
+
+      // Detect category for the new task (it's at index 2)
+      setDetecting(prev => { const n = [...prev]; n[2] = true; return n; });
+      const detectedCat = await detectCategory(text);
+      setDetecting(prev => { const n = [...prev]; n[2] = false; return n; });
+
+      let taskId = `s_${Date.now()}`;
+      if (user) {
+        const { data } = await supabase.from("tasks").insert({
+          user_id: user.id, text, category: detectedCat, done: false, from_slot: true,
+        }).select().single();
+        if (data) taskId = data.id;
+      }
+
+      setPriorities(p => p.map((s, i) => i === 2 ? { ...s, sourceId: taskId, sourceCat: detectedCat } : s));
+      setTasks(p => ({
+        ...p,
+        [detectedCat]: [...(p[detectedCat] || []), { id: taskId, text, done: false, fromSlot: true }],
+      }));
+      showToast(`→ ${detectedCat}`);
+      return;
+    }
+
+    // ── NORMAL SLOT COMMIT ───────────────────────────────────────────────────
     if (existing.title && existing.sourceId && existing.sourceCat) {
       setTasks(p => ({
         ...p,
@@ -598,19 +797,32 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
   async function returnSlot(idx) {
     const slot = priorities[idx];
     if (!slot.title) return;
-    setPriorities(p => p.map((s, i) => i === idx ? EMPTY_SLOT() : s));
-    if (!slot.sourceId) { showToast("cleared"); return; }
 
-    const targetCat = slot.sourceCat || "Personal";
-    setTasks(tp => {
-      const list = tp[targetCat] || [];
-      const exists = list.some(t => t.id === slot.sourceId);
-      if (exists) return { ...tp, [targetCat]: list.map(t => t.id === slot.sourceId ? { ...t, fromSlot: false } : t) };
-      return { ...tp, [targetCat]: [...list, { id: slot.sourceId, text: slot.title, done: false }] };
-    });
-    if (user) await supabase.from("tasks").update({ from_slot: false }).eq("id", slot.sourceId);
-    setCat(targetCat);
-    showToast(`returned to ${targetCat}`);
+    // Return the slot's task to its source category
+    if (slot.sourceId) {
+      const targetCat = slot.sourceCat || "Personal";
+      setTasks(tp => {
+        const list   = tp[targetCat] || [];
+        const exists = list.some(t => t.id === slot.sourceId);
+        if (exists) return { ...tp, [targetCat]: list.map(t => t.id === slot.sourceId ? { ...t, fromSlot: false } : t) };
+        return { ...tp, [targetCat]: [...list, { id: slot.sourceId, text: slot.title, done: false }] };
+      });
+      if (user) await supabase.from("tasks").update({ from_slot: false }).eq("id", slot.sourceId);
+      setCat(slot.sourceCat || "Personal");
+    }
+
+    // If a completed bar exists, restore it into the freed slot
+    if (completedBars.length > 0) {
+      const bar = completedBars[completedBars.length - 1];
+      setPriorities(p => p.map((s, i) =>
+        i === idx ? { title: bar.title, done: false, sourceId: bar.sourceId, sourceCat: bar.sourceCat } : s
+      ));
+      setCompletedBars(prev => prev.slice(0, -1));
+      showToast("restored from completed");
+    } else {
+      setPriorities(p => p.map((s, i) => i === idx ? EMPTY_SLOT() : s));
+      showToast(slot.sourceId ? `returned to ${slot.sourceCat || "tasks"}` : "cleared");
+    }
   }
 
   // ── TASK LOGIC ─────────────────────────────────────────────────────────────
@@ -660,25 +872,20 @@ Return a valid JSON array only — no other text: ["Question 1?","Question 2?","
 
   // ── JOURNAL LOGIC ──────────────────────────────────────────────────────────
 
-  // Save entry to Supabase journal_entries table, then compress to memory
   async function saveJournalEntry(text, type) {
     if (!user || !text.trim()) return;
     const { error } = await supabase.from("journal_entries").insert({
-      user_id: user.id,
-      raw_text: text.trim(),
-      entry_type: type,
+      user_id: user.id, raw_text: text.trim(), entry_type: type,
     });
-    if (!error) {
-      compressToMemory(text); // background — does not block
-    }
+    if (!error) compressToMemory(text);
   }
 
   async function compressToMemory(text) {
     if (!user) return;
     try {
       const result = await callClaude(
-        `Extract 3-5 keywords and write one concise sentence capturing the key insight from this journal entry.
-Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary":"One sentence."}`,
+        `Extract 3-5 keywords and one concise insight sentence from this journal entry.
+Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}`,
         text, 150
       );
       const match = result.match(/\{[\s\S]*\}/);
@@ -686,17 +893,13 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
       const { keywords, summary } = JSON.parse(match[0]);
       if (summary) {
         await supabase.from("memories").insert({
-          user_id: user.id,
-          keywords: keywords || [],
-          summary,
-          category: "journal",
-          memory_date: new Date().toISOString().split("T")[0],
+          user_id: user.id, keywords: keywords || [], summary,
+          category: "journal", memory_date: todayStr(),
         });
       }
-    } catch { /* silent — memory compression is non-critical */ }
+    } catch { /* silent */ }
   }
 
-  // Save journal entry to DB, clear textarea, advance question
   async function submitJournal() {
     if (!journal.trim()) { showToast("write something first"); return; }
     setJournalSaving(true);
@@ -704,13 +907,9 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
     setJournal("");
     setJournalSaving(false);
     showToast("saved");
-    // Cycle to next question
-    if (reflQuestions.length > 0) {
-      setReflIdx(i => (i + 1) % reflQuestions.length);
-    }
+    if (reflQuestions.length > 0) setReflIdx(i => (i + 1) % reflQuestions.length);
   }
 
-  // AI observation panel — analyzes current journal text without saving
   async function reflect() {
     if (!journal.trim()) { showToast("write something first"); return; }
     setAiLoading(true); setAiOpen(true); setAiText(null);
@@ -803,16 +1002,32 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
           </div>
         </div>
 
-        {/* ── TOP BLOCKS ── */}
-        <div className="top-wrap" style={{ height: "calc(50dvh - 37px)" }}>
+        {/* ── TOP SECTION — height auto, expands as bars are added ── */}
+        <div className="top-wrap" ref={topWrapRef}>
+
+          {/* Minimised completed bars — locked, no controls, above priority cards */}
+          {completedBars.map(bar => (
+            <div key={bar.id} className="pri-bar">
+              <div className="pri-bar-text">✓ {bar.title}</div>
+            </div>
+          ))}
+
+          {/* Priority cards — always full height */}
           {priorities.map((slot, i) => {
-            const isEditing = editingSlot === i;
+            const isEditing  = editingSlot === i;
+            const isDragging = dragIdx === i;
+            const isTarget   = dragOver === i && dragIdx !== null && dragIdx !== i;
             return (
               <div key={i}
-                className={["pri-block", slot.title && !isEditing ? "has-task" : "",
+                className={[
+                  "pri-block",
                   slot.title && slot.done && !isEditing ? "done" : "",
-                  isEditing ? "editing" : ""].filter(Boolean).join(" ")}
-                style={{ height: "33.333%" }}
+                  isEditing  ? "editing"     : "",
+                  isDragging ? "dragging"    : "",
+                  isTarget   ? "drag-target" : "",
+                ].filter(Boolean).join(" ")}
+                onPointerDown={e => onSlotPointerDown(e, i)}
+                onPointerUp={() => onSlotPointerUp()}
                 onClick={() => { if (!isEditing) tapSlotBody(i); }}>
 
                 <div className="pri-num">0{i + 1}</div>
@@ -826,6 +1041,7 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
                       if (e.key === "Enter") { e.preventDefault(); commitSlot(i); }
                       if (e.key === "Escape") cancelSlot(i);
                     }}
+                    onPointerDown={e => e.stopPropagation()} // prevent drag start on input
                     onBlur={() => commitSlot(i)} />
                 ) : slot.title ? (
                   <>
@@ -840,7 +1056,7 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
                 )}
 
                 {!isEditing && slot.title && (
-                  <div className="pri-actions" onClick={e => e.stopPropagation()}>
+                  <div className="pri-actions" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
                     <button className="pri-action-btn"
                       onPointerDown={e => { e.preventDefault(); e.stopPropagation(); returnSlot(i); }}>
                       <IconDown />
@@ -855,10 +1071,10 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
             );
           })}
 
+          {/* Non-Negotiables panel — slides over priority cards */}
           <div className={`nn-panel ${topMode === "nn" ? "visible" : ""}`}>
             {nn.map((n, i) => (
               <div key={n.id} className={`nn-block ${n.done ? "done" : ""}`}
-                style={{ height: "33.333%" }}
                 onClick={() => setNn(p => p.map(x => x.id === n.id ? { ...x, done: !x.done } : x))}>
                 <div className="nn-num">0{i + 1}</div>
                 <div className="nn-title">{n.title}</div>
@@ -867,40 +1083,32 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
           </div>
         </div>
 
-        {/* ── LOWER ── */}
+        {/* ── LOWER — shrinks naturally as top-wrap grows ── */}
         <div className="lower">
 
           {/* JOURNAL COLUMN */}
           <div className="journal-col">
-
-            {/* Reflection question bar — auto-populated on login, tap to cycle */}
             {(reflLoading || reflQuestions.length > 0) && (
               <div className="refl-bar"
                 onClick={() => !reflLoading && reflQuestions.length > 0 &&
                   setReflIdx(i => (i + 1) % reflQuestions.length)}>
                 {reflLoading ? (
-                  <div className="refl-bar-loading">
-                    <span className="spin-sm" /> personalizing...
-                  </div>
+                  <div className="refl-bar-loading"><span className="spin-sm" /> personalizing...</div>
                 ) : (
                   <>
-                    <div className="refl-bar-prog">
-                      {reflIdx + 1} / {reflQuestions.length} · tap to cycle
-                    </div>
+                    <div className="refl-bar-prog">{reflIdx + 1} / {reflQuestions.length} · tap to cycle</div>
                     <div className="refl-bar-text">{reflQuestions[reflIdx]}</div>
                   </>
                 )}
               </div>
             )}
 
-            {/* Free-form textarea — always available regardless of questions */}
             <textarea className="journal-area"
               placeholder="Write anything..."
               value={journal}
               onChange={e => setJournal(e.target.value)}
             />
 
-            {/* Footer: mic · reflect · save */}
             <div className="journal-foot">
               <button className="mic-btn" onClick={() => showToast("voice — coming soon")}>🎙</button>
               <button className="reflect-btn" onClick={reflect}>
@@ -911,14 +1119,13 @@ Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary
               </button>
             </div>
 
-            {/* AI observation panel — slides up over journal */}
             <div className={`ai-panel ${aiOpen ? "open" : ""}`}>
               <div className="ai-head">
                 <div className="ai-label">Observed</div>
                 <button className="ai-back" onClick={() => setAiOpen(false)}>← back</button>
               </div>
               {aiLoading
-                ? <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text-mute)", fontSize: 12 }}>
+                ? <div style={{ display:"flex", gap:8, alignItems:"center", color:"var(--text-mute)", fontSize:12 }}>
                     <span className="spin-sm" /> reading...
                   </div>
                 : <div className="ai-body">{aiText}</div>

@@ -250,18 +250,14 @@ const DEFAULT_TASKS = {
 };
 
 async function callClaude(system, userMsg, maxTokens = 300) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: userMsg }],
-    }),
+    body: JSON.stringify({ system, userMsg, maxTokens }),
   });
   const d = await res.json();
-  return d.content?.[0]?.text?.trim() || "";
+  if (!res.ok) throw new Error(d.error ?? "API error");
+  return d.text || "";
 }
 
 async function detectCategory(text) {

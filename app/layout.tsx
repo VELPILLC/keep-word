@@ -1,3 +1,4 @@
+import React from 'react';
 export const metadata = { title: "Keep Word" };
 export const viewport = {
   width: "device-width",

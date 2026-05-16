@@ -1,6 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabase";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CSS
+// ─────────────────────────────────────────────────────────────────────────────
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -74,8 +78,6 @@ const CSS = `
     font-size:16px; font-weight:400; color:var(--text); letter-spacing:-0.01em;
     width:100%; caret-color:var(--accent); user-select:text; touch-action:auto; padding:0; }
   .pri-input::placeholder { color:var(--text-mute); font-weight:300; }
-
-  /* slot action buttons */
   .pri-actions { position:absolute; right:0; top:0; bottom:0;
     display:flex; flex-direction:column; border-left:1px solid var(--border); }
   .pri-action-btn { flex:1; background:none; border:none; border-bottom:1px solid var(--border);
@@ -102,9 +104,21 @@ const CSS = `
   /* LOWER */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
 
-  /* LEFT journal */
+  /* LEFT — journal */
   .journal-col { width:48%; display:flex; flex-direction:column;
     border-right:1px solid var(--border); min-height:0; position:relative; }
+
+  /* Journal mode tabs */
+  .j-mode-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .j-mode-tab { flex:1; padding:8px 2px; font-family:var(--mono); font-size:7px;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--text-mute);
+    background:none; border:none; border-right:1px solid var(--border);
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    transition:color var(--tr),background var(--tr); }
+  .j-mode-tab:last-child { border-right:none; }
+  .j-mode-tab.active { color:var(--text); background:rgba(255,255,255,0.016); }
+
+  /* Notes mode */
   .journal-area { flex:1; background:transparent; border:none; color:var(--text);
     font-family:var(--font); font-size:16px; font-weight:300; line-height:1.7;
     padding:14px 14px 44px; resize:none; outline:none; caret-color:var(--accent);
@@ -133,7 +147,40 @@ const CSS = `
   .ai-body { font-size:13px; font-weight:300; line-height:1.72;
     color:var(--text-dim); white-space:pre-wrap; }
 
-  /* RIGHT tasks */
+  /* Reflection mode */
+  .refl-wrap { flex:1; display:flex; flex-direction:column; min-height:0; }
+  .refl-idle { flex:1; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .refl-idle-label { font-family:var(--mono); font-size:9px; letter-spacing:0.14em;
+    color:var(--text-mute); text-transform:uppercase; }
+  .refl-generating { flex:1; display:flex; align-items:center; justify-content:center;
+    gap:10px; font-family:var(--mono); font-size:9px; letter-spacing:0.1em; color:var(--text-mute); }
+  .refl-q-panel { flex:1; display:flex; flex-direction:column; min-height:0; }
+  .refl-q-top { padding:12px 14px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .refl-q-prog { font-family:var(--mono); font-size:7.5px; letter-spacing:0.1em;
+    color:var(--text-mute); margin-bottom:8px; }
+  .refl-q-text { font-size:13px; font-weight:300; line-height:1.6; color:var(--text); }
+  .refl-answer { flex:1; background:transparent; border:none; color:var(--text);
+    font-family:var(--font); font-size:16px; font-weight:300; line-height:1.7;
+    padding:12px 14px; resize:none; outline:none; caret-color:var(--accent);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; user-select:text; touch-action:pan-y; }
+  .refl-answer::-webkit-scrollbar { display:none; }
+  .refl-answer::placeholder { color:var(--text-mute); }
+  .refl-footer { padding:7px 12px; border-top:1px solid var(--border); flex-shrink:0;
+    display:flex; justify-content:flex-end; }
+  .refl-next-btn { background:none; border:1px solid var(--border); color:var(--text-mute);
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 16px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .refl-done { flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:10px; padding:20px; text-align:center; }
+  .refl-done-label { font-family:var(--mono); font-size:9px; letter-spacing:0.14em;
+    color:var(--text-mute); text-transform:uppercase; }
+  .refl-done-note { font-size:11px; font-weight:300; color:var(--text-mute); line-height:1.6; }
+  .refl-again { background:none; border:1px solid var(--border); color:var(--text-mute);
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 16px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; margin-top:4px; }
+
+  /* RIGHT — tasks */
   .task-col { flex:1; display:flex; flex-direction:column; min-height:0; }
   .cat-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
   .cat-tab { flex:1; padding:10px 2px 9px; font-size:7px; font-weight:500;
@@ -161,8 +208,6 @@ const CSS = `
     color:var(--text); flex:1; user-select:none; }
   .task-row.done .task-text { text-decoration:line-through; color:var(--text-mute); }
   .task-up { font-size:14px; color:var(--accent); flex-shrink:0; line-height:1; padding:2px 0; }
-
-  /* ADD ROW */
   .add-row { display:flex; align-items:stretch; border-bottom:1px solid var(--border); }
   .add-input { flex:1; background:none; border:none; color:var(--text);
     font-family:var(--font); font-size:16px; font-weight:300;
@@ -199,9 +244,12 @@ const CSS = `
     font-family:var(--font); font-size:10px; font-weight:500;
     letter-spacing:0.16em; text-transform:uppercase; cursor:pointer;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .auth-sub:disabled { opacity:0.4; cursor:not-allowed; }
   .auth-tog { margin-top:24px; font-size:10px; color:var(--text-mute);
     background:none; border:none; cursor:pointer; font-family:var(--font);
     -webkit-tap-highlight-color:transparent; }
+  .auth-msg { font-size:11px; color:var(--text-mute); margin-top:10px;
+    max-width:280px; line-height:1.5; text-align:center; }
   .auth-err { font-size:11px; color:#7A3A3A; margin-top:10px;
     max-width:280px; line-height:1.5; text-align:center; }
 
@@ -217,6 +265,9 @@ const CSS = `
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 `;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 const LS = {
   get: (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
@@ -230,7 +281,7 @@ function getGreeting() {
 }
 
 const TODAY = new Date().toLocaleDateString("en-US", {
-  weekday: "short", month: "short", day: "numeric"
+  weekday: "short", month: "short", day: "numeric",
 }).toUpperCase();
 
 const CATS = ["Work", "Personal", "Business", "Life"];
@@ -249,6 +300,9 @@ const DEFAULT_TASKS = {
   Life:     [{ id:"l1", text:"Sleep by target time", done:false }, { id:"l2", text:"Move — 20 min minimum", done:false }, { id:"l3", text:"Prepare tomorrow", done:false }],
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CLAUDE PROXY
+// ─────────────────────────────────────────────────────────────────────────────
 async function callClaude(system, userMsg, maxTokens = 300) {
   const res = await fetch("/api/claude", {
     method: "POST",
@@ -272,6 +326,9 @@ Reply with ONLY the one-word category.`,
   } catch { return "Personal"; }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ICONS
+// ─────────────────────────────────────────────────────────────────────────────
 const IconDown = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
     <path d="M7 2L7 12M3 8L7 12L11 8" stroke="#8B3A3A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -283,73 +340,178 @@ const IconEdit = () => (
   </svg>
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// APP
+// ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [authed, setAuthed]     = useState(false);
-  const [user, setUser]         = useState(null);
-  const [authMode, setMode]     = useState("login");
-  const [af, setAf]             = useState({ email:"", password:"", name:"" });
-  const [authErr, setAuthErr]   = useState("");
 
+  // ── AUTH ───────────────────────────────────────────────────────────────────
+  const [authed, setAuthed]           = useState(false);
+  const [user, setUser]               = useState(null);
+  const [authMode, setMode]           = useState("login");
+  const [af, setAf]                   = useState({ email: "", password: "", name: "" });
+  const [authErr, setAuthErr]         = useState("");
+  const [authMsg, setAuthMsg]         = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // ── OVERLAY ────────────────────────────────────────────────────────────────
   const [overlayOn, setOverlayOn]           = useState(true);
   const [overlayExit, setOverlayExit]       = useState(false);
   const [overlaySummary, setOverlaySummary] = useState(null);
   const [overlayLoading, setOvLoading]      = useState(true);
 
+  // ── TOP ────────────────────────────────────────────────────────────────────
   const [topMode, setTopMode]         = useState("priority");
   const [priorities, setPriorities]   = useState([EMPTY_SLOT(), EMPTY_SLOT(), EMPTY_SLOT()]);
   const [editingSlot, setEditingSlot] = useState(-1);
-  const [slotInputs, setSlotInputs]   = useState(["","",""]);
-  const [detecting, setDetecting]     = useState([false,false,false]);
+  const [slotInputs, setSlotInputs]   = useState(["", "", ""]);
+  const [detecting, setDetecting]     = useState([false, false, false]);
 
-  const [nn, setNn]       = useState(() => LS.get("kw_nn", DEFAULT_NN));
-  const [tasks, setTasks] = useState(() => {
-    const s = LS.get("kw_tasks", null);
-    if (s && CATS.every(c => Array.isArray(s[c]))) {
-      const cleaned = {};
-      CATS.forEach(c => { cleaned[c] = s[c].map(t => ({ ...t, fromSlot: false })); });
-      return cleaned;
-    }
-    return DEFAULT_TASKS;
-  });
-  const [cat, setCat]         = useState("Work");
+  // ── NN ─────────────────────────────────────────────────────────────────────
+  const [nn, setNn] = useState(() => LS.get("kw_nn", DEFAULT_NN));
+
+  // ── TASKS ──────────────────────────────────────────────────────────────────
+  const [tasks, setTasks] = useState(DEFAULT_TASKS);
+  const [cat, setCat]     = useState("Work");
   const [adding, setAdding]   = useState(false);
   const [addText, setAddText] = useState("");
 
-  const [journal, setJournal]     = useState("");
-  const [aiText, setAiText]       = useState(null);
-  const [aiOpen, setAiOpen]       = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [toast, setToast]         = useState({ show:false, msg:"" });
+  // ── JOURNAL ────────────────────────────────────────────────────────────────
+  const [journalMode, setJournalMode] = useState("notes"); // "notes" | "reflection"
+  const [journal, setJournal]         = useState("");
+  const [aiText, setAiText]           = useState(null);
+  const [aiOpen, setAiOpen]           = useState(false);
+  const [aiLoading, setAiLoading]     = useState(false);
 
-  const slotRefs  = [useRef(null), useRef(null), useRef(null)];
+  // ── REFLECTION ─────────────────────────────────────────────────────────────
+  const [reflStep, setReflStep]           = useState(null); // null | generating | questioning | done
+  const [reflQuestions, setReflQuestions] = useState([]);
+  const [reflIdx, setReflIdx]             = useState(0);
+  const [reflAnswers, setReflAnswers]     = useState([]);
+  const [reflAnswer, setReflAnswer]       = useState("");
+
+  // ── TOAST ──────────────────────────────────────────────────────────────────
+  const [toast, setToast] = useState({ show: false, msg: "" });
+
+  const slotRefs   = [useRef(null), useRef(null), useRef(null)];
   const addTextRef = useRef("");
+  const reflAnsRef = useRef(null);
 
   useEffect(() => { addTextRef.current = addText; }, [addText]);
-
-  useEffect(() => {
-    const u = LS.get("kw_user", null);
-    if (u) { setUser(u); setAuthed(true); loadOverlay(u.name); }
-  }, []);
-
   useEffect(() => { LS.set("kw_nn", nn); }, [nn]);
-  useEffect(() => { LS.set("kw_tasks", tasks); }, [tasks]);
+
+  // ── SUPABASE AUTH LISTENER ─────────────────────────────────────────────────
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          setAuthed(true);
+          const name = session.user.user_metadata?.name || session.user.email.split("@")[0];
+          // load in parallel
+          loadTasks(session.user.id);
+          loadOverlay(session.user.id, name);
+        } else {
+          setUser(null);
+          setAuthed(false);
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (editingSlot >= 0) {
-      setTimeout(() => slotRefs[editingSlot]?.current?.focus(), 60);
-    }
-  }, [editingSlot]);
+    if (editingSlot >= 0) setTimeout(() => slotRefs[editingSlot]?.current?.focus(), 60);
+  }, [editingSlot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadOverlay(name) {
+  useEffect(() => {
+    if (reflStep === "questioning") setTimeout(() => reflAnsRef.current?.focus(), 60);
+  }, [reflStep, reflIdx]);
+
+  // ── DATA LOADING ───────────────────────────────────────────────────────────
+
+  async function loadTasks(userId) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      const grouped = {};
+      CATS.forEach(c => { grouped[c] = []; });
+      data.forEach(t => {
+        if (grouped[t.category]) {
+          grouped[t.category].push({
+            id: t.id,
+            text: t.text,
+            done: t.done,
+            fromSlot: false, // slots don't persist across sessions
+          });
+        }
+      });
+      setTasks(grouped);
+    }
+    // 0 rows = new user, DEFAULT_TASKS stays as the initial hint
+  }
+
+  async function loadOverlay(userId, name) {
     setOvLoading(true);
     try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const { data: memories } = await supabase
+        .from("memories")
+        .select("summary")
+        .eq("user_id", userId)
+        .gte("memory_date", since)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const context = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
+      const prompt  = context
+        ? `Name: ${name}. Recent context: ${context}`
+        : `Name: ${name}`;
+
       const text = await callClaude(
         `Calm daily briefing. 1-2 lines plain text. No labels. Under 20 words. Grounded. Displayed very large.`,
-        `Name: ${name}`
+        prompt
       );
       setOverlaySummary(text);
-    } catch { setOverlaySummary("Keep your word.\nFinish what you start."); }
+    } catch {
+      setOverlaySummary("Keep your word.\nFinish what you start.");
+    }
     setOvLoading(false);
+  }
+
+  // ── AUTH HANDLERS ──────────────────────────────────────────────────────────
+
+  async function handleAuth() {
+    setAuthErr(""); setAuthMsg("");
+    if (!af.email || !af.password) { setAuthErr("Email and password required."); return; }
+    if (authMode === "register" && !af.name) { setAuthErr("Name required."); return; }
+    setAuthLoading(true);
+    try {
+      if (authMode === "register") {
+        const { error } = await supabase.auth.signUp({
+          email: af.email,
+          password: af.password,
+          options: { data: { name: af.name } },
+        });
+        if (error) { setAuthErr(error.message); return; }
+        setAuthMsg("Check your email to confirm your account, then sign in.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: af.email,
+          password: af.password,
+        });
+        if (error) { setAuthErr(error.message); }
+        // success → onAuthStateChange fires and handles the rest
+      }
+    } catch {
+      setAuthErr("Something went wrong. Please try again.");
+    } finally {
+      setAuthLoading(false);
+    }
   }
 
   function dismissOverlay() {
@@ -358,21 +520,10 @@ export default function App() {
     setTimeout(() => setOverlayOn(false), 500);
   }
 
-  function handleAuth() {
-    setAuthErr("");
-    if (!af.email || !af.password) { setAuthErr("Email and password required."); return; }
-    if (authMode === "register" && !af.name) { setAuthErr("Name required."); return; }
-    const u = { email:af.email, name:authMode==="register" ? af.name : af.email.split("@")[0] };
-    LS.set("kw_user", u);
-    setUser(u); setAuthed(true); loadOverlay(u.name);
-  }
-
-  // ── SLOT LOGIC ───────────────────────────────────────────────────────────────
+  // ── SLOT LOGIC ─────────────────────────────────────────────────────────────
 
   function openSlot(idx) {
-    // prefill with existing title so edit works correctly
-    const existing = priorities[idx].title || "";
-    setSlotInputs(prev => { const n=[...prev]; n[idx]=existing; return n; });
+    setSlotInputs(prev => { const n = [...prev]; n[idx] = priorities[idx].title || ""; return n; });
     setEditingSlot(idx);
   }
 
@@ -380,8 +531,7 @@ export default function App() {
     if (editingSlot !== -1) return;
     const slot = priorities[idx];
     if (slot.title) {
-      // tap filled slot = toggle done
-      setPriorities(p => p.map((s,i) => i===idx ? {...s, done:!s.done} : s));
+      setPriorities(p => p.map((s, i) => i === idx ? { ...s, done: !s.done } : s));
     } else {
       openSlot(idx);
     }
@@ -390,125 +540,158 @@ export default function App() {
   async function commitSlot(idx) {
     const text = slotInputs[idx].trim();
     setEditingSlot(-1);
-
     const existing = priorities[idx];
-
-    // if blank and slot already had content, keep existing (don't wipe)
     if (!text) return;
 
-    // if editing an existing slot, clean up the old task list entry first
+    // Remove previous task for this slot if it was typed directly (not promoted)
     if (existing.title && existing.sourceId && existing.sourceCat) {
       setTasks(p => ({
         ...p,
         [existing.sourceCat]: (p[existing.sourceCat] || []).filter(t => t.id !== existing.sourceId),
       }));
+      if (user) await supabase.from("tasks").delete().eq("id", existing.sourceId);
     }
 
-    // reuse id on edit so nothing gets orphaned; new id for new entries
-    const id = (existing.title && existing.sourceId) ? existing.sourceId : `s${idx}_${Date.now()}`;
-
-    // show in slot immediately
-    setPriorities(p => p.map((s,i) =>
-      i===idx ? { title:text, done:false, sourceId:id, sourceCat:null } : s
+    // Show title immediately while we detect category
+    setPriorities(p => p.map((s, i) =>
+      i === idx ? { title: text, done: false, sourceId: null, sourceCat: null } : s
     ));
 
-    // detect category
-    setDetecting(prev => { const n=[...prev]; n[idx]=true; return n; });
+    setDetecting(prev => { const n = [...prev]; n[idx] = true; return n; });
     const detectedCat = await detectCategory(text);
-    setDetecting(prev => { const n=[...prev]; n[idx]=false; return n; });
+    setDetecting(prev => { const n = [...prev]; n[idx] = false; return n; });
 
-    setPriorities(p => p.map((s,i) => i===idx ? {...s, sourceCat:detectedCat} : s));
+    // Insert task in DB, use the UUID as canonical ID
+    let taskId = `s${idx}_${Date.now()}`;
+    if (user) {
+      const { data } = await supabase.from("tasks").insert({
+        user_id: user.id, text, category: detectedCat, done: false, from_slot: true,
+      }).select().single();
+      if (data) taskId = data.id;
+    }
+
+    setPriorities(p => p.map((s, i) => i === idx ? { ...s, sourceId: taskId, sourceCat: detectedCat } : s));
     setTasks(p => ({
       ...p,
-      [detectedCat]: [...(p[detectedCat]||[]), { id, text, done:false, fromSlot:true }],
+      [detectedCat]: [...(p[detectedCat] || []), { id: taskId, text, done: false, fromSlot: true }],
     }));
     showToast(`→ ${detectedCat}`);
   }
 
   function cancelSlot(idx) {
     setEditingSlot(-1);
-    // restore input to existing title (don't blank it)
-    setSlotInputs(prev => { const n=[...prev]; n[idx]=priorities[idx].title||""; return n; });
+    setSlotInputs(prev => { const n = [...prev]; n[idx] = priorities[idx].title || ""; return n; });
   }
 
-  function returnSlot(idx) {
+  async function returnSlot(idx) {
     const slot = priorities[idx];
     if (!slot.title) return;
-
-    // clear slot
-    setPriorities(p => p.map((s,i) => i===idx ? EMPTY_SLOT() : s));
-
+    setPriorities(p => p.map((s, i) => i === idx ? EMPTY_SLOT() : s));
     if (!slot.sourceId) { showToast("cleared"); return; }
 
     const targetCat = slot.sourceCat || "Personal";
-
     setTasks(tp => {
       const list = tp[targetCat] || [];
       const exists = list.some(t => t.id === slot.sourceId);
-      if (exists) {
-        // just un-mark fromSlot
-        return { ...tp, [targetCat]: list.map(t => t.id===slot.sourceId ? {...t, fromSlot:false} : t) };
-      }
-      // re-add as a normal task
-      return { ...tp, [targetCat]: [...list, { id:slot.sourceId, text:slot.title, done:false }] };
+      if (exists) return { ...tp, [targetCat]: list.map(t => t.id === slot.sourceId ? { ...t, fromSlot: false } : t) };
+      return { ...tp, [targetCat]: [...list, { id: slot.sourceId, text: slot.title, done: false }] };
     });
-
+    if (user) await supabase.from("tasks").update({ from_slot: false }).eq("id", slot.sourceId);
     setCat(targetCat);
     showToast(`returned to ${targetCat}`);
   }
 
-  // ── TASK LOGIC ───────────────────────────────────────────────────────────────
+  // ── TASK LOGIC ─────────────────────────────────────────────────────────────
 
   function tapTask(task, catName) {
     if (task.done) { toggleTask(catName, task.id); return; }
-    // double-check: is this task actually in a slot right now?
     const isActuallySlotted = priorities.some(s => s.sourceId === task.id && s.title);
-    if (task.fromSlot && isActuallySlotted) {
-      showToast("in priority — use ↓ to return");
-      return;
-    }
-    // if fromSlot flag is stale (slot was cleared), treat as normal task
+    if (task.fromSlot && isActuallySlotted) { showToast("in priority — use ↓ to return"); return; }
     if (task.fromSlot && !isActuallySlotted) {
-      setTasks(p => ({
-        ...p,
-        [catName]: (p[catName]||[]).map(t => t.id===task.id ? {...t, fromSlot:false} : t),
-      }));
+      setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: false } : t) }));
     }
     const emptyIdx = priorities.findIndex(s => !s.title);
     if (emptyIdx === -1) { showToast("all 3 slots filled"); return; }
-    setPriorities(p => p.map((s,i) =>
-      i===emptyIdx ? { title:task.text, done:false, sourceId:task.id, sourceCat:catName } : s
+    setPriorities(p => p.map((s, i) =>
+      i === emptyIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
     ));
-    setTasks(p => ({
-      ...p,
-      [catName]: (p[catName]||[]).map(t => t.id===task.id ? {...t, fromSlot:true} : t),
-    }));
+    setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: true } : t) }));
+    if (user) supabase.from("tasks").update({ from_slot: true }).eq("id", task.id);
     if (navigator.vibrate) navigator.vibrate(10);
-    showToast(`→ priority ${emptyIdx+1}`);
+    showToast(`→ priority ${emptyIdx + 1}`);
   }
 
   function toggleTask(catName, id) {
-    setTasks(p => ({
-      ...p,
-      [catName]: (p[catName]||[]).map(t => t.id===id ? {...t, done:!t.done} : t),
-    }));
+    const task = (tasks[catName] || []).find(t => t.id === id);
+    if (!task) return;
+    const newDone = !task.done;
+    setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === id ? { ...t, done: newDone } : t) }));
+    if (user) supabase.from("tasks").update({ done: newDone }).eq("id", id);
   }
 
-  function commitAdd() {
+  async function commitAdd() {
     const val = addTextRef.current.trim();
     if (!val) { setAdding(false); return; }
-    setTasks(p => ({ ...p, [cat]: [...(p[cat]||[]), { id:`t${Date.now()}`, text:val, done:false }] }));
+    if (user) {
+      const { data, error } = await supabase.from("tasks").insert({
+        user_id: user.id, text: val, category: cat, done: false, from_slot: false,
+      }).select().single();
+      if (!error && data) {
+        setTasks(p => ({ ...p, [cat]: [...(p[cat] || []), { id: data.id, text: val, done: false, fromSlot: false }] }));
+      }
+    } else {
+      setTasks(p => ({ ...p, [cat]: [...(p[cat] || []), { id: `t${Date.now()}`, text: val, done: false }] }));
+    }
     setAddText(""); addTextRef.current = "";
     setAdding(false); showToast("added");
   }
 
+  // ── JOURNAL LOGIC ──────────────────────────────────────────────────────────
+
+  // Save entry to DB, then fire-and-forget memory compression
+  async function saveJournalEntry(text, type) {
+    if (!user || !text.trim()) return;
+    await supabase.from("journal_entries").insert({
+      user_id: user.id, raw_text: text, entry_type: type,
+    });
+    compressToMemory(text); // background — does not block
+  }
+
+  async function compressToMemory(text) {
+    if (!user) return;
+    try {
+      const result = await callClaude(
+        `Extract 3-5 keywords and write one concise sentence capturing the key insight from this journal entry.
+Return valid JSON only — no other text: {"keywords":["word1","word2"],"summary":"One sentence."}`,
+        text, 150
+      );
+      const match = result.match(/\{[\s\S]*\}/);
+      if (!match) return;
+      const { keywords, summary } = JSON.parse(match[0]);
+      if (summary) {
+        await supabase.from("memories").insert({
+          user_id: user.id,
+          keywords: keywords || [],
+          summary,
+          category: "journal",
+          memory_date: new Date().toISOString().split("T")[0],
+        });
+      }
+    } catch { /* silent — memory compression is non-critical */ }
+  }
+
   function handleJournalKey(e) {
-    if (e.key === "Enter") { e.preventDefault(); setJournal(""); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (journal.trim()) saveJournalEntry(journal, "note");
+      setJournal("");
+    }
   }
 
   async function reflect() {
     if (!journal.trim()) { showToast("write something first"); return; }
     setAiLoading(true); setAiOpen(true); setAiText(null);
+    await saveJournalEntry(journal, "note");
     try {
       const text = await callClaude(
         `Observational system. Plain text only.\n\nPatterns:\n[2 lines]\n\nUnresolved:\n[1-2 lines]\n\nTomorrow:\n[1-2 lines]\n\nUnder 60 words. Calm, factual.`,
@@ -519,66 +702,137 @@ export default function App() {
     setAiLoading(false);
   }
 
+  // ── REFLECTION LOGIC ───────────────────────────────────────────────────────
+
+  async function startReflection() {
+    setReflStep("generating");
+    setReflAnswers([]); setReflIdx(0); setReflAnswer("");
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const { data: memories } = user
+        ? await supabase.from("memories").select("summary")
+            .eq("user_id", user.id).gte("memory_date", since)
+            .order("created_at", { ascending: false }).limit(7)
+        : { data: [] };
+
+      const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
+
+      const doneTasks    = Object.entries(tasks).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
+      const pendingTasks = Object.entries(tasks).flatMap(([c, list]) => list.filter(t => !t.done && !t.fromSlot).map(t => `${t.text} (${c})`));
+
+      const ctx = [
+        `Time of day: ${getGreeting()}`,
+        doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
+        pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
+        recentCtx           ? `Recent context: ${recentCtx}` : "",
+      ].filter(Boolean).join("\n");
+
+      const result = await callClaude(
+        `Generate 3 to 5 specific, thoughtful reflection questions for someone at this point in their day.
+Ground every question in the context provided — completed tasks, pending items, time of day, recent life context.
+Make them introspective but practical. No generic questions.
+Return a valid JSON array only — no other text: ["Question 1?","Question 2?","Question 3?"]`,
+        ctx, 400
+      );
+
+      const match = result.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("no array");
+      const questions = JSON.parse(match[0]);
+      if (!Array.isArray(questions) || questions.length === 0) throw new Error("empty");
+
+      setReflQuestions(questions);
+      setReflStep("questioning");
+    } catch {
+      showToast("could not generate questions");
+      setReflStep(null);
+    }
+  }
+
+  function submitAnswer() {
+    if (!reflAnswer.trim()) return;
+    const updated = [...reflAnswers, { q: reflQuestions[reflIdx], a: reflAnswer.trim() }];
+    setReflAnswers(updated);
+    setReflAnswer("");
+    if (reflIdx + 1 < reflQuestions.length) {
+      setReflIdx(reflIdx + 1);
+    } else {
+      finishReflection(updated);
+    }
+  }
+
+  async function finishReflection(answers) {
+    setReflStep("done");
+    const fullText = answers.map(({ q, a }) => `Q: ${q}\nA: ${a}`).join("\n\n");
+    await saveJournalEntry(fullText, "reflection");
+    showToast("reflection saved");
+  }
+
+  function resetReflection() {
+    setReflStep(null); setReflQuestions([]); setReflIdx(0);
+    setReflAnswers([]); setReflAnswer("");
+  }
+
   function showToast(msg) {
-    setToast({ show:true, msg });
-    setTimeout(() => setToast({ show:false, msg:"" }), 2000);
+    setToast({ show: true, msg });
+    setTimeout(() => setToast({ show: false, msg: "" }), 2000);
   }
 
   const currentTasks = tasks[cat] || [];
 
-  // ── AUTH ─────────────────────────────────────────────────────────────────────
+  // ── AUTH SCREEN ────────────────────────────────────────────────────────────
   if (!authed) return (
     <>
       <style>{CSS}</style>
       <div className="auth">
         <div className="auth-tag">Daily Practice</div>
-        <div className="auth-hed">Keep your word<br/>to yourself.</div>
+        <div className="auth-hed">Keep your word<br />to yourself.</div>
         {authMode === "register" && (
           <div className="auth-field">
             <label className="auth-lbl">Name</label>
             <input className="auth-inp" type="text" placeholder="Your name"
-              value={af.name} onChange={e => setAf(p => ({...p, name:e.target.value}))} />
+              value={af.name} onChange={e => setAf(p => ({ ...p, name: e.target.value }))} />
           </div>
         )}
         <div className="auth-field">
           <label className="auth-lbl">Email</label>
           <input className="auth-inp" type="email" autoComplete="email" placeholder="you@example.com"
-            value={af.email} onChange={e => setAf(p => ({...p, email:e.target.value}))}
-            onKeyDown={e => e.key==="Enter" && handleAuth()} />
+            value={af.email} onChange={e => setAf(p => ({ ...p, email: e.target.value }))}
+            onKeyDown={e => e.key === "Enter" && handleAuth()} />
         </div>
         <div className="auth-field">
           <label className="auth-lbl">Password</label>
           <input className="auth-inp" type="password" placeholder="••••••••"
-            value={af.password} onChange={e => setAf(p => ({...p, password:e.target.value}))}
-            onKeyDown={e => e.key==="Enter" && handleAuth()} />
+            value={af.password} onChange={e => setAf(p => ({ ...p, password: e.target.value }))}
+            onKeyDown={e => e.key === "Enter" && handleAuth()} />
         </div>
         {authErr && <div className="auth-err">{authErr}</div>}
-        <button className="auth-sub" onClick={handleAuth}>
-          {authMode==="login" ? "Enter" : "Create Account"}
+        {authMsg && <div className="auth-msg">{authMsg}</div>}
+        <button className="auth-sub" onClick={handleAuth} disabled={authLoading}>
+          {authLoading ? <span className="spin-sm" /> : authMode === "login" ? "Enter" : "Create Account"}
         </button>
         <button className="auth-tog"
-          onClick={() => { setMode(m => m==="login"?"register":"login"); setAuthErr(""); }}>
-          {authMode==="login" ? "Create an account" : "Sign in instead"}
+          onClick={() => { setMode(m => m === "login" ? "register" : "login"); setAuthErr(""); setAuthMsg(""); }}>
+          {authMode === "login" ? "Create an account" : "Sign in instead"}
         </button>
       </div>
     </>
   );
 
-  // ── MAIN ─────────────────────────────────────────────────────────────────────
+  // ── MAIN APP ───────────────────────────────────────────────────────────────
   return (
     <>
       <style>{CSS}</style>
       <div className="app">
 
         {overlayOn && (
-          <div className={`overlay ${overlayExit?"exit":""}`} onClick={dismissOverlay}>
+          <div className={`overlay ${overlayExit ? "exit" : ""}`} onClick={dismissOverlay}>
             {overlayLoading
-              ? <div className="ov-loader"/>
+              ? <div className="ov-loader" />
               : <>
                   <div className="ov-greeting">{getGreeting()}</div>
                   <div className="ov-summary">
-                    {overlaySummary?.split("\n").map((line,i) => (
-                      <span key={i} style={{display:"block"}}>{line}</span>
+                    {overlaySummary?.split("\n").map((line, i) => (
+                      <span key={i} style={{ display: "block" }}>{line}</span>
                     ))}
                   </div>
                   <div className="ov-tap">tap anywhere to continue</div>
@@ -590,48 +844,42 @@ export default function App() {
         <div className="toprow">
           <div className="toprow-date">{TODAY}</div>
           <div className="flip-tab">
-            <button className={`flip-btn ${topMode==="priority"?"active":""}`}
+            <button className={`flip-btn ${topMode === "priority" ? "active" : ""}`}
               onClick={() => setTopMode("priority")}>Daily</button>
-            <button className={`flip-btn ${topMode==="nn"?"active":""}`}
+            <button className={`flip-btn ${topMode === "nn" ? "active" : ""}`}
               onClick={() => setTopMode("nn")}>Foundation</button>
           </div>
         </div>
 
-        {/* TOP BLOCKS */}
-        <div className="top-wrap" style={{height:"calc(50dvh - 37px)"}}>
+        {/* ── TOP BLOCKS ── */}
+        <div className="top-wrap" style={{ height: "calc(50dvh - 37px)" }}>
           {priorities.map((slot, i) => {
             const isEditing = editingSlot === i;
             return (
               <div key={i}
-                className={[
-                  "pri-block",
-                  slot.title && !isEditing ? "has-task" : "",
+                className={["pri-block", slot.title && !isEditing ? "has-task" : "",
                   slot.title && slot.done && !isEditing ? "done" : "",
-                  isEditing ? "editing" : "",
-                ].filter(Boolean).join(" ")}
-                style={{height:"33.333%"}}
+                  isEditing ? "editing" : ""].filter(Boolean).join(" ")}
+                style={{ height: "33.333%" }}
                 onClick={() => { if (!isEditing) tapSlotBody(i); }}>
 
-                <div className="pri-num">0{i+1}</div>
+                <div className="pri-num">0{i + 1}</div>
 
                 {isEditing ? (
-                  <input
-                    ref={slotRefs[i]}
-                    className="pri-input"
+                  <input ref={slotRefs[i]} className="pri-input"
                     placeholder="What needs to happen..."
                     value={slotInputs[i]}
-                    onChange={e => setSlotInputs(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}
+                    onChange={e => setSlotInputs(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
                     onKeyDown={e => {
-                      if (e.key==="Enter") { e.preventDefault(); commitSlot(i); }
-                      if (e.key==="Escape") cancelSlot(i);
+                      if (e.key === "Enter") { e.preventDefault(); commitSlot(i); }
+                      if (e.key === "Escape") cancelSlot(i);
                     }}
-                    onBlur={() => commitSlot(i)}
-                  />
+                    onBlur={() => commitSlot(i)} />
                 ) : slot.title ? (
                   <>
                     <div className="pri-title">{slot.title}</div>
                     {detecting[i]
-                      ? <div className="pri-detecting"><span className="spin-sm"/> detecting...</div>
+                      ? <div className="pri-detecting"><span className="spin-sm" /> detecting...</div>
                       : slot.sourceCat && <div className="pri-source">{slot.sourceCat}</div>
                     }
                   </>
@@ -643,11 +891,11 @@ export default function App() {
                   <div className="pri-actions" onClick={e => e.stopPropagation()}>
                     <button className="pri-action-btn"
                       onPointerDown={e => { e.preventDefault(); e.stopPropagation(); returnSlot(i); }}>
-                      <IconDown/>
+                      <IconDown />
                     </button>
                     <button className="pri-action-btn"
                       onPointerDown={e => { e.preventDefault(); e.stopPropagation(); openSlot(i); }}>
-                      <IconEdit/>
+                      <IconEdit />
                     </button>
                   </div>
                 )}
@@ -655,88 +903,144 @@ export default function App() {
             );
           })}
 
-          <div className={`nn-panel ${topMode==="nn"?"visible":""}`}>
-            {nn.map((n,i) => (
-              <div key={n.id}
-                className={`nn-block ${n.done?"done":""}`}
-                style={{height:"33.333%"}}
-                onClick={() => setNn(p => p.map(x => x.id===n.id ? {...x,done:!x.done} : x))}>
-                <div className="nn-num">0{i+1}</div>
+          <div className={`nn-panel ${topMode === "nn" ? "visible" : ""}`}>
+            {nn.map((n, i) => (
+              <div key={n.id} className={`nn-block ${n.done ? "done" : ""}`}
+                style={{ height: "33.333%" }}
+                onClick={() => setNn(p => p.map(x => x.id === n.id ? { ...x, done: !x.done } : x))}>
+                <div className="nn-num">0{i + 1}</div>
                 <div className="nn-title">{n.title}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* LOWER */}
+        {/* ── LOWER ── */}
         <div className="lower">
 
+          {/* JOURNAL COLUMN */}
           <div className="journal-col">
-            <textarea className="journal-area"
-              placeholder="Write anything. Enter to clear."
-              value={journal}
-              onChange={e => setJournal(e.target.value)}
-              onKeyDown={handleJournalKey}
-            />
-            <div className="journal-foot">
-              <button className="mic-btn" onClick={() => showToast("voice — coming soon")}>🎙</button>
-              <button className="reflect-btn" onClick={reflect}>
-                {aiLoading ? <span className="spin-sm"/> : "↑ reflect"}
+
+            {/* Mode toggle */}
+            <div className="j-mode-tabs">
+              <button className={`j-mode-tab ${journalMode === "notes" ? "active" : ""}`}
+                onClick={() => { setJournalMode("notes"); setAiOpen(false); }}>
+                Notes
+              </button>
+              <button className={`j-mode-tab ${journalMode === "reflection" ? "active" : ""}`}
+                onClick={() => { setJournalMode("reflection"); setAiOpen(false); }}>
+                Reflect
               </button>
             </div>
-            <div className={`ai-panel ${aiOpen?"open":""}`}>
-              <div className="ai-head">
-                <div className="ai-label">Observed</div>
-                <button className="ai-back" onClick={() => setAiOpen(false)}>← back</button>
-              </div>
-              {aiLoading
-                ? <div style={{display:"flex",gap:8,alignItems:"center",color:"var(--text-mute)",fontSize:12}}>
-                    <span className="spin-sm"/> reading...
+
+            {journalMode === "notes" ? (
+              /* ── NOTES MODE ── */
+              <>
+                <textarea className="journal-area"
+                  placeholder="Write anything. Enter to clear."
+                  value={journal}
+                  onChange={e => setJournal(e.target.value)}
+                  onKeyDown={handleJournalKey}
+                />
+                <div className="journal-foot">
+                  <button className="mic-btn" onClick={() => showToast("voice — coming soon")}>🎙</button>
+                  <button className="reflect-btn" onClick={reflect}>
+                    {aiLoading ? <span className="spin-sm" /> : "↑ reflect"}
+                  </button>
+                </div>
+                <div className={`ai-panel ${aiOpen ? "open" : ""}`}>
+                  <div className="ai-head">
+                    <div className="ai-label">Observed</div>
+                    <button className="ai-back" onClick={() => setAiOpen(false)}>← back</button>
                   </div>
-                : <div className="ai-body">{aiText}</div>
-              }
-            </div>
+                  {aiLoading
+                    ? <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--text-mute)", fontSize: 12 }}>
+                        <span className="spin-sm" /> reading...
+                      </div>
+                    : <div className="ai-body">{aiText}</div>
+                  }
+                </div>
+              </>
+            ) : (
+              /* ── REFLECTION MODE ── */
+              <div className="refl-wrap">
+                {reflStep === null && (
+                  <div className="refl-idle" onClick={startReflection}>
+                    <div className="refl-idle-label">Begin reflection</div>
+                  </div>
+                )}
+
+                {reflStep === "generating" && (
+                  <div className="refl-generating">
+                    <span className="spin-sm" /> generating questions...
+                  </div>
+                )}
+
+                {reflStep === "questioning" && (
+                  <div className="refl-q-panel">
+                    <div className="refl-q-top">
+                      <div className="refl-q-prog">{reflIdx + 1} / {reflQuestions.length}</div>
+                      <div className="refl-q-text">{reflQuestions[reflIdx]}</div>
+                    </div>
+                    <textarea ref={reflAnsRef} className="refl-answer"
+                      placeholder="Your answer..."
+                      value={reflAnswer}
+                      onChange={e => setReflAnswer(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); }
+                      }}
+                    />
+                    <div className="refl-footer">
+                      <button className="refl-next-btn" onClick={submitAnswer}>
+                        {reflIdx + 1 < reflQuestions.length ? "Next →" : "Finish"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {reflStep === "done" && (
+                  <div className="refl-done">
+                    <div className="refl-done-label">Saved</div>
+                    <div className="refl-done-note">Compressed into memory.</div>
+                    <button className="refl-again" onClick={resetReflection}>Reflect again</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* TASK COLUMN */}
           <div className="task-col">
             <div className="cat-tabs">
               {CATS.map(c => (
-                <button key={c}
-                  className={`cat-tab ${cat===c?"active":""}`}
+                <button key={c} className={`cat-tab ${cat === c ? "active" : ""}`}
                   onClick={() => { setCat(c); setAdding(false); }}>
                   {c}
                 </button>
               ))}
             </div>
-
             <div className="task-list">
               {currentTasks.map(t => (
                 <div key={t.id}
-                  className={`task-row ${t.done?"done":""} ${t.fromSlot&&!t.done?"assigned":""}`}
+                  className={`task-row ${t.done ? "done" : ""} ${t.fromSlot && !t.done ? "assigned" : ""}`}
                   onClick={() => tapTask(t, cat)}>
-                  <div className="task-dot"/>
+                  <div className="task-dot" />
                   <div className="task-text">{t.text}</div>
                   {!t.done && !t.fromSlot && <div className="task-up">↑</div>}
                 </div>
               ))}
-
               {adding ? (
                 <div className="add-row">
-                  <input
-                    className="add-input"
-                    autoFocus
-                    placeholder="New task..."
+                  <input className="add-input" autoFocus placeholder="New task..."
                     value={addText}
-                    onChange={e => { setAddText(e.target.value); addTextRef.current=e.target.value; }}
+                    onChange={e => { setAddText(e.target.value); addTextRef.current = e.target.value; }}
                     onKeyDown={e => {
-                      if (e.key==="Enter") { e.preventDefault(); commitAdd(); }
-                      if (e.key==="Escape") { setAdding(false); setAddText(""); addTextRef.current=""; }
+                      if (e.key === "Enter") { e.preventDefault(); commitAdd(); }
+                      if (e.key === "Escape") { setAdding(false); setAddText(""); addTextRef.current = ""; }
                     }}
                   />
                   <button className="add-confirm"
-                    onPointerDown={e => { e.preventDefault(); commitAdd(); }}>
-                    ✓
-                  </button>
+                    onPointerDown={e => { e.preventDefault(); commitAdd(); }}>✓</button>
                 </div>
               ) : (
                 <button className="add-trigger" onClick={() => setAdding(true)}>+ add</button>
@@ -745,7 +1049,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className={`toast ${toast.show?"show":""}`}>{toast.msg}</div>
+        <div className={`toast ${toast.show ? "show" : ""}`}>{toast.msg}</div>
       </div>
     </>
   );

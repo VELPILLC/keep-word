@@ -9,10 +9,10 @@ const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg:#1C1410; --border:#3A2C24; --text:#E4D9CF; --text-dim:#9A8880;
-    --text-mute:#5C4E47; --accent:#527252; --red:#8B3A3A;
-    --done-bg:#1A2118; --done-text:#527252; --nn-bg:#1F1A2A;
-    --nn-border:#3A3050; --input-bg:#221A14;
+    --bg:#241712; --border:#3E2919; --text:#E4D9CF; --text-dim:#9A8878;
+    --text-mute:#614838; --accent:#D4A246; --red:#8B3A3A;
+    --done-bg:#251C0A; --done-text:#D4A246; --nn-bg:#1F1A2A;
+    --nn-border:#3A3050; --input-bg:#2A1C10;
     --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --tr:140ms ease;
   }
   html { height:100%; width:100%; overflow:hidden; position:fixed; top:0; left:0;
@@ -310,7 +310,7 @@ const IconDown = () => (
 );
 const IconEdit = () => (
   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-    <path d="M9 2L11 4L5 10L2 11L3 8Z" stroke="#5C4E47" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 2L11 4L5 10L2 11L3 8Z" stroke="#614838" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 

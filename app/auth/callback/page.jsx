@@ -28,8 +28,8 @@ function CallbackHandler() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "#1C1410",
-      color: "#5C4E47",
+      background: "#241712",
+      color: "#614838",
       fontFamily: "'IBM Plex Mono', monospace",
       fontSize: "10px",
       letterSpacing: "0.14em",
@@ -44,7 +44,7 @@ export default function AuthCallback() {
     <Suspense fallback={
       <div style={{
         height: "100dvh",
-        background: "#1C1410",
+        background: "#241712",
       }} />
     }>
       <CallbackHandler />

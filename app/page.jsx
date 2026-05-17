@@ -16,7 +16,7 @@ const CSS = `
   :root {
     --bg:#241712; --border:#3E2919; --text:#E4D9CF; --text-dim:#9A8878;
     --text-mute:#614838; --accent:#D4A246; --red:#8B3A3A;
-    --done-bg:#251C0A; --done-text:#D4A246; --nn-bg:#1E1B19;
+    --done-bg:#1B2B1B; --done-text:#527252; --nn-bg:#1E1B19;
     --nn-border:#231E1B; --input-bg:#2A1C10;
     --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --tr:140ms ease;
   }
@@ -31,11 +31,11 @@ const CSS = `
   .app { display:flex; flex-direction:column; height:100dvh; width:100vw;
     overflow:hidden; position:fixed; top:0; left:0; }
 
-  /* OVERLAY */
-  .overlay { position:fixed; inset:0; background:var(--bg); z-index:100;
+  /* ── STARTUP OVERLAY ── */
+  .s-overlay { position:fixed; inset:0; background:var(--bg); z-index:100;
     display:flex; flex-direction:column; padding:52px 44px 44px;
     cursor:pointer; transition:opacity 500ms ease; touch-action:manipulation; }
-  .overlay.exit { opacity:0; pointer-events:none; }
+  .s-overlay.exit { opacity:0; pointer-events:none; }
   .ov-greeting { font-family:var(--mono); font-size:10px; letter-spacing:0.14em;
     color:var(--text-mute); text-transform:lowercase; margin-bottom:36px; }
   .ov-summary { font-size:clamp(28px,8vw,42px); font-weight:300; line-height:1.3;
@@ -47,10 +47,34 @@ const CSS = `
     animation:spin 800ms linear infinite; margin-bottom:36px; }
   @keyframes spin { to { transform:rotate(360deg); } }
 
-  /* TOPROW */
+  /* ── AI OVERLAY ── */
+  .ai-overlay { position:fixed; inset:0; background:var(--bg); z-index:90;
+    display:flex; flex-direction:column; overflow:hidden;
+    opacity:1; transition:opacity 380ms ease; }
+  .ai-overlay.exit { opacity:0; pointer-events:none; }
+  .ai-scroll { flex:1; overflow-y:auto; padding:52px 44px 88px;
+    -webkit-overflow-scrolling:touch; touch-action:pan-y; }
+  .ai-scroll::-webkit-scrollbar { display:none; }
+  .ai-tag { font-family:var(--mono); font-size:9px; letter-spacing:0.14em;
+    color:var(--text-mute); text-transform:lowercase; margin-bottom:36px; }
+  .ai-body-lg { font-size:clamp(15px,3.8vw,20px); font-weight:300; line-height:1.72;
+    color:var(--text-dim); letter-spacing:-0.01em; white-space:pre-wrap; }
+  .ai-dismiss { position:absolute; bottom:32px; left:44px; font-family:var(--mono);
+    font-size:9px; letter-spacing:0.12em; color:var(--text-mute); pointer-events:none; }
+  .ai-spin-wrap { display:flex; align-items:center; gap:12px;
+    font-family:var(--mono); font-size:9px; letter-spacing:0.1em; color:var(--text-mute); }
+
+  /* ── TOPROW ── */
   .toprow { display:flex; align-items:center; justify-content:space-between;
-    padding:10px 14px; flex-shrink:0; }
-  .toprow-date { font-family:var(--mono); font-size:9px; letter-spacing:0.1em; color:var(--text-mute); }
+    padding:10px 14px; flex-shrink:0; gap:8px; }
+  .toprow-date { font-family:var(--mono); font-size:9px; letter-spacing:0.1em;
+    color:var(--text-mute); flex:1; }
+  .toprow-right { display:flex; align-items:center; gap:8px; }
+  .ai-trigger-btn { background:none; border:none; padding:5px 8px;
+    font-family:var(--mono); font-size:9px; letter-spacing:0.1em;
+    color:var(--text-mute); cursor:pointer; -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation; transition:color var(--tr); line-height:1; }
+  .ai-trigger-btn:active { color:var(--text-dim); }
   .flip-tab { display:flex; border:1px solid var(--border); overflow:hidden; }
   .flip-btn { padding:6px 12px; font-family:var(--mono); font-size:7.5px;
     letter-spacing:0.1em; text-transform:uppercase; color:var(--text-mute);
@@ -59,19 +83,19 @@ const CSS = `
   .flip-btn+.flip-btn { border-left:1px solid var(--border); }
   .flip-btn.active { color:var(--text); background:rgba(255,255,255,0.04); }
 
-  /* TOP BLOCKS — height auto so bars push lower section down */
+  /* ── TOP SECTION ── */
   .top-wrap { flex-shrink:0; display:flex; flex-direction:column;
     border-top:1px solid var(--border); position:relative; overflow:hidden; }
 
-  /* Completed task minimised bar */
+  /* Completed bar */
   .pri-bar { height:${BAR_H}px; flex-shrink:0; padding:0 14px;
     display:flex; align-items:center; overflow:hidden;
-    background:#1B2B1B; border-bottom:1px solid #253525; }
-  .pri-bar-text { font-size:10px; font-weight:300; color:#527252;
+    background:var(--done-bg); border-bottom:1px solid #253525; }
+  .pri-bar-text { font-size:10px; font-weight:300; color:var(--done-text);
     text-decoration:line-through; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; letter-spacing:0.01em; }
 
-  /* Priority cards — fixed height so they never shrink */
+  /* Priority cards */
   .pri-block { height:calc((50dvh - 37px) / 3); border-bottom:1px solid var(--border);
     padding:0 56px 0 16px; display:flex; flex-direction:column;
     justify-content:center; position:relative; cursor:pointer;
@@ -79,8 +103,6 @@ const CSS = `
     user-select:none; -webkit-user-select:none;
     transition:background var(--tr),opacity var(--tr); }
   .pri-block.editing { background:var(--input-bg); cursor:default; }
-  .pri-block.done { background:var(--done-bg); opacity:0.58; }
-  .pri-block.done .pri-title { text-decoration:line-through; color:var(--done-text); }
   .pri-block.dragging { opacity:0.3; }
   .pri-block.drag-target { background:rgba(255,255,255,0.05); }
   .pri-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
@@ -105,7 +127,7 @@ const CSS = `
   .pri-action-btn:last-child { border-bottom:none; }
   .pri-action-btn:active { background:rgba(255,255,255,0.04); }
 
-  /* NN panel — subtle desaturated purple */
+  /* NN panel */
   .nn-panel { position:absolute; inset:0; display:flex; flex-direction:column;
     background:var(--nn-bg); transform:translateX(100%); transition:transform 280ms ease; }
   .nn-panel.visible { transform:translateX(0); }
@@ -120,60 +142,10 @@ const CSS = `
     color:#504846; letter-spacing:-0.01em; }
   .nn-block.done .nn-title { text-decoration:line-through; color:#2C2725; }
 
-  /* LOWER */
+  /* ── LOWER ── */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
 
-  /* LEFT — journal */
-  .journal-col { width:48%; display:flex; flex-direction:column;
-    border-right:1px solid var(--border); min-height:0; position:relative; }
-
-  /* Reflection question bar */
-  .refl-bar { flex-shrink:0; padding:10px 14px 9px; border-bottom:1px solid var(--border);
-    min-height:38px; display:flex; flex-direction:column; justify-content:center;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .refl-bar-loading { display:flex; align-items:center; gap:8px;
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:var(--text-mute); }
-  .refl-bar-prog { font-family:var(--mono); font-size:7px; letter-spacing:0.1em;
-    color:var(--text-mute); margin-bottom:5px; }
-  .refl-bar-text { font-size:11px; font-weight:300; line-height:1.5; color:var(--text-dim); }
-
-  /* Journal textarea */
-  .journal-area { flex:1; background:transparent; border:none; color:var(--text);
-    font-family:var(--font); font-size:16px; font-weight:300; line-height:1.7;
-    padding:12px 14px; resize:none; outline:none; caret-color:var(--accent);
-    overflow-y:auto; -webkit-overflow-scrolling:touch; user-select:text; touch-action:pan-y; }
-  .journal-area::-webkit-scrollbar { display:none; }
-  .journal-area::placeholder { color:var(--text-mute); font-size:13px; }
-
-  /* Journal footer */
-  .journal-foot { flex-shrink:0; padding:7px 12px; border-top:1px solid var(--border);
-    background:var(--bg); display:flex; align-items:center; gap:8px; }
-  .mic-btn { background:none; border:none; color:var(--text-mute); font-size:14px;
-    cursor:pointer; line-height:1; padding:4px;
-    -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .reflect-btn { background:none; border:1px solid var(--border); color:var(--text-mute);
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 12px;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .save-btn { background:none; border:1px solid var(--accent); color:var(--accent);
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 14px;
-    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
-    margin-left:auto; }
-
-  /* AI observation panel */
-  .ai-panel { position:absolute; inset:0; background:var(--bg); padding:14px;
-    display:flex; flex-direction:column; gap:12px; overflow-y:auto;
-    transform:translateY(100%); transition:transform 260ms ease; touch-action:pan-y; }
-  .ai-panel.open { transform:translateY(0); }
-  .ai-head { display:flex; justify-content:space-between; align-items:center; }
-  .ai-label { font-size:8px; font-weight:500; letter-spacing:0.14em;
-    text-transform:uppercase; color:var(--text-mute); }
-  .ai-back { background:none; border:none; font-family:var(--mono); font-size:8px;
-    letter-spacing:0.1em; color:var(--text-mute); cursor:pointer; padding:6px 0;
-    -webkit-tap-highlight-color:transparent; }
-  .ai-body { font-size:13px; font-weight:300; line-height:1.72;
-    color:var(--text-dim); white-space:pre-wrap; }
-
-  /* RIGHT — tasks */
+  /* TASK COLUMN — full width */
   .task-col { flex:1; display:flex; flex-direction:column; min-height:0; }
   .cat-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
   .cat-tab { flex:1; padding:10px 2px 9px; font-size:7px; font-weight:500;
@@ -191,7 +163,7 @@ const CSS = `
     display:flex; align-items:center; padding-left:16px; }
   .task-delete-label { font-family:var(--mono); font-size:8px; letter-spacing:0.12em;
     color:rgba(255,255,255,0.55); text-transform:uppercase; }
-  .task-row { display:flex; align-items:center; padding:12px; gap:9px;
+  .task-row { display:flex; align-items:center; padding:12px 14px; gap:9px;
     border-bottom:1px solid var(--border); cursor:pointer;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     background:var(--bg); position:relative; z-index:1;
@@ -199,12 +171,14 @@ const CSS = `
   .task-row:active { background:rgba(255,255,255,0.02); }
   .task-row.done { opacity:0.42; }
   .task-row.assigned { opacity:0.3; }
+  .task-row.tdragging { opacity:0.2; background:var(--bg) !important; }
+  .task-swipe-wrap.tdrag-target .task-row { background:rgba(255,255,255,0.04); }
   .task-dot { width:5px; height:5px; border-radius:50%;
     border:1px solid var(--text-mute); flex-shrink:0;
     transition:background var(--tr),border-color var(--tr); }
   .task-row.done .task-dot { background:var(--accent); border-color:var(--accent); }
   .task-text { font-size:12px; font-weight:300; line-height:1.45;
-    color:var(--text); flex:1; user-select:none; }
+    color:var(--text); flex:1; user-select:none; -webkit-user-select:none; }
   .task-row.done .task-text { text-decoration:line-through; color:var(--text-mute); }
   .task-up { font-size:14px; color:#527252; flex-shrink:0; line-height:1; padding:2px 0; }
   .add-row { display:flex; align-items:stretch; border-bottom:1px solid var(--border); }
@@ -223,7 +197,7 @@ const CSS = `
     cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent;
     touch-action:manipulation; }
 
-  /* AUTH */
+  /* ── AUTH ── */
   .auth { display:flex; flex-direction:column; align-items:center;
     justify-content:center; height:100dvh; padding:48px 44px; }
   .auth-tag { font-family:var(--mono); font-size:9px; letter-spacing:0.14em;
@@ -350,11 +324,17 @@ export default function App() {
   const [authMsg, setAuthMsg]         = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  // ── OVERLAY ────────────────────────────────────────────────────────────────
+  // ── STARTUP OVERLAY ────────────────────────────────────────────────────────
   const [overlayOn, setOverlayOn]           = useState(true);
   const [overlayExit, setOverlayExit]       = useState(false);
   const [overlaySummary, setOverlaySummary] = useState(null);
   const [overlayLoading, setOvLoading]      = useState(true);
+
+  // ── AI OVERLAY ─────────────────────────────────────────────────────────────
+  const [aiOverlayOn, setAiOverlayOn]       = useState(false);
+  const [aiOverlayExit, setAiOverlayExit]   = useState(false);
+  const [aiOverlayText, setAiOverlayText]   = useState(null);
+  const [aiOverlayLoading, setAiOvLoading]  = useState(false);
 
   // ── TOP ────────────────────────────────────────────────────────────────────
   const [topMode, setTopMode]         = useState("priority");
@@ -364,64 +344,57 @@ export default function App() {
   const [detecting, setDetecting]     = useState([false, false, false]);
   const [completedBars, setCompletedBars] = useState(() => LS.get("kw_bars", []));
 
-  // ── DRAG ───────────────────────────────────────────────────────────────────
-  const [dragIdx, setDragIdx]   = useState(null); // slot being dragged
-  const [dragOver, setDragOver] = useState(null); // drop target slot
+  // ── PRIORITY DRAG ──────────────────────────────────────────────────────────
+  const [dragIdx, setDragIdx]   = useState(null);
+  const [dragOver, setDragOver] = useState(null);
 
   // ── NN ─────────────────────────────────────────────────────────────────────
   const [nn, setNn] = useState(() => LS.get("kw_nn", DEFAULT_NN));
 
   // ── TASKS ──────────────────────────────────────────────────────────────────
-  const [tasks, setTasks] = useState(EMPTY_TASKS);
-  const [cat, setCat]     = useState("Work");
-  const [adding, setAdding]   = useState(false);
-  const [addText, setAddText] = useState("");
-
-  // ── JOURNAL ────────────────────────────────────────────────────────────────
-  const [journal, setJournal]             = useState("");
-  const [journalSaving, setJournalSaving] = useState(false);
-  const [aiText, setAiText]               = useState(null);
-  const [aiOpen, setAiOpen]               = useState(false);
-  const [aiLoading, setAiLoading]         = useState(false);
-
-  // ── REFLECTION QUESTIONS ───────────────────────────────────────────────────
-  const [reflLoading, setReflLoading]     = useState(false);
-  const [reflQuestions, setReflQuestions] = useState([]);
-  const [reflIdx, setReflIdx]             = useState(0);
+  const [tasks, setTasks]         = useState(EMPTY_TASKS);
+  const [cat, setCat]             = useState("Work");
+  const [adding, setAdding]       = useState(false);
+  const [addText, setAddText]     = useState("");
+  const [taskDragIdx, setTDragIdx]   = useState(null);
+  const [taskDragOver, setTDragOver] = useState(null);
 
   // ── TOAST ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState({ show: false, msg: "" });
 
   // ── REFS ───────────────────────────────────────────────────────────────────
-  const slotRefs        = [useRef(null), useRef(null), useRef(null)];
-  const addTextRef      = useRef("");
-  const topWrapRef      = useRef(null);
-  // Mutable drag state (avoids closure stale-state issues in pointer handlers)
-  const dragState       = useRef({ active: false, startIdx: -1, dragOver: -1, timer: null });
-  const wasDraggingRef  = useRef(false);
-  // Mirrors of state for use inside pointer event callbacks
+  const slotRefs         = [useRef(null), useRef(null), useRef(null)];
+  const addTextRef       = useRef("");
+  const topWrapRef       = useRef(null);
+  const taskListRef      = useRef(null);
+
+  // Priority drag refs
+  const dragState        = useRef({ active: false, startIdx: -1, dragOver: -1, timer: null });
+  const wasDraggingRef   = useRef(false);
   const completedBarsRef = useRef(completedBars);
   const prioritiesRef    = useRef(priorities);
-  // Pointer handler refs so we can removeEventListener cleanly
-  const onMoveRef = useRef(null);
-  const onUpRef   = useRef(null);
-  // Swipe-to-delete state
-  const swipeRef        = useRef({ active: false, startX: 0, startY: 0, locked: false, translateX: 0, taskId: null, catName: null, rowEl: null });
-  const swipeWasSwipe   = useRef(false);
+  const onMoveRef        = useRef(null);
+  const onUpRef          = useRef(null);
+
+  // Task drag/swipe refs
+  const tdDragState      = useRef({ active: false, startIdx: -1, dragOver: -1, cat: null });
+  const wasDraggingTask  = useRef(false);
+  const swipeWasSwipe    = useRef(false);
+  const hiddenAtRef      = useRef(null);
+  const userRef          = useRef(null); // stable ref to user for visibilitychange
 
   // Keep mirrors in sync
   useEffect(() => { completedBarsRef.current = completedBars; }, [completedBars]);
   useEffect(() => { prioritiesRef.current = priorities; }, [priorities]);
-
   useEffect(() => { addTextRef.current = addText; }, [addText]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
-  // Persist NN order + done state
+  // Persist NN
   useEffect(() => { LS.set("kw_nn", nn); }, [nn]);
-
   // Persist completed bars
   useEffect(() => { LS.set("kw_bars", completedBars); }, [completedBars]);
 
-  // ── DAILY SNAPSHOT (for AI memory) ─────────────────────────────────────────
+  // ── DAILY SNAPSHOT ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!authed) return;
     LS.set("kw_daily", {
@@ -438,11 +411,13 @@ export default function App() {
       const today  = todayStr();
       const stored = LS.get("kw_last_date", "");
       if (stored && stored !== today) {
-        // Save yesterday's memory, then reset
-        if (user) saveDailyMemory(stored);
+        const u = userRef.current;
+        if (u) {
+          saveDailyMemory(u, stored);
+          saveNnMemory(u, nn, stored);
+        }
         setNn(p => p.map(x => ({ ...x, done: false })));
         setCompletedBars([]);
-        // Incomplete priorities carry over; done slots become empty
         setPriorities(p => p.map(s => s.done ? EMPTY_SLOT() : s));
         LS.set("kw_last_date", today);
       } else if (!stored) {
@@ -452,7 +427,26 @@ export default function App() {
     checkNewDay();
     const interval = setInterval(checkNewDay, 60_000);
     return () => clearInterval(interval);
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── VISIBILITY CHANGE → AI OVERLAY after 30 min away ──────────────────────
+  useEffect(() => {
+    const AWAY_MS = 30 * 60 * 1000;
+    function onVisChange() {
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+      } else {
+        if (hiddenAtRef.current && Date.now() - hiddenAtRef.current >= AWAY_MS && userRef.current) {
+          hiddenAtRef.current = null;
+          openAiOverlay();
+        } else {
+          hiddenAtRef.current = null;
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", onVisChange);
+    return () => document.removeEventListener("visibilitychange", onVisChange);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── SUPABASE AUTH LISTENER ─────────────────────────────────────────────────
   useEffect(() => {
@@ -462,9 +456,8 @@ export default function App() {
           setUser(session.user);
           setAuthed(true);
           const name = session.user.user_metadata?.name || session.user.email.split("@")[0];
-          const tasksData = await loadTasks(session.user.id);
+          await loadTasks(session.user.id);
           loadOverlay(session.user.id, name);
-          loadQuestions(session.user.id, tasksData);
         } else {
           setUser(null);
           setAuthed(false);
@@ -524,48 +517,10 @@ export default function App() {
     setOvLoading(false);
   }
 
-  async function loadQuestions(userId, tasksData) {
-    setReflLoading(true);
-    try {
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const { data: memories } = await supabase
-        .from("memories").select("summary")
-        .eq("user_id", userId).gte("memory_date", since)
-        .order("created_at", { ascending: false }).limit(10);
+  // ── MEMORY WRITES ──────────────────────────────────────────────────────────
 
-      const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
-      const source    = tasksData || EMPTY_TASKS;
-      const doneTasks    = Object.entries(source).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
-      const pendingTasks = Object.entries(source).flatMap(([c, list]) => list.filter(t => !t.done).map(t => `${t.text} (${c})`));
-
-      const ctx = [
-        `Time of day: ${getGreeting()}`,
-        doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
-        pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
-        recentCtx           ? `Recent context (incl. daily summaries): ${recentCtx}` : "",
-      ].filter(Boolean).join("\n");
-
-      const result = await callClaude(
-        `Generate 3 to 5 specific, thoughtful reflection questions grounded in this context.
-Reference completed/pending tasks, time of day, and any patterns from recent daily summaries.
-No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"]`,
-        ctx, 400
-      );
-
-      const match = result.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error("no array");
-      const questions = JSON.parse(match[0]);
-      if (Array.isArray(questions) && questions.length > 0) {
-        setReflQuestions(questions);
-        setReflIdx(0);
-      }
-    } catch { /* silent */ }
-    setReflLoading(false);
-  }
-
-  // Save end-of-day summary to memories table
-  async function saveDailyMemory(date) {
-    if (!user) return;
+  async function saveDailyMemory(u, date) {
+    if (!u) return;
     try {
       const snap = LS.get("kw_daily", null);
       if (!snap) return;
@@ -585,13 +540,105 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
       ].filter(Boolean).join(". ");
 
       await supabase.from("memories").insert({
-        user_id: user.id,
+        user_id: u.id,
         keywords: ["daily-summary", date, ...donePri.slice(0, 3)],
         summary: parts,
         category: "daily",
         memory_date: date,
       });
     } catch { /* silent */ }
+  }
+
+  async function saveNnMemory(u, nnState, date) {
+    if (!u) return;
+    try {
+      const done   = nnState.filter(n => n.done).map(n => n.title);
+      const skipped = nnState.filter(n => !n.done).map(n => n.title);
+      const summary = [
+        `Non-Negotiables for ${date}:`,
+        done.length   ? `Completed (${done.length}/3): ${done.join(", ")}` : "None completed",
+        skipped.length ? `Skipped: ${skipped.join(", ")}` : "",
+      ].filter(Boolean).join(" ");
+
+      await supabase.from("memories").insert({
+        user_id: u.id,
+        keywords: ["nn", date, ...done.slice(0, 3)],
+        summary,
+        category: "nn",
+        memory_date: date,
+      });
+    } catch { /* silent */ }
+  }
+
+  async function saveTaskCompletionMemory(u, text, catName) {
+    if (!u) return;
+    try {
+      await supabase.from("memories").insert({
+        user_id: u.id,
+        keywords: ["task-done", catName.toLowerCase(), todayStr()],
+        summary: `Completed task (${catName}): ${text}`,
+        category: "task",
+        memory_date: todayStr(),
+      });
+    } catch { /* silent */ }
+  }
+
+  // ── AI OVERLAY ─────────────────────────────────────────────────────────────
+
+  async function openAiOverlay() {
+    if (aiOverlayLoading) return;
+    setAiOverlayExit(false);
+    setAiOverlayOn(true);
+    setAiOverlayText(null);
+    setAiOvLoading(true);
+
+    try {
+      const u = userRef.current;
+      const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const { data: memories } = u ? await supabase
+        .from("memories").select("summary,category,memory_date")
+        .eq("user_id", u.id).gte("memory_date", since)
+        .order("memory_date", { ascending: false }).limit(20)
+        : { data: [] };
+
+      const memCtx = memories?.map(m => `[${m.category} ${m.memory_date}] ${m.summary}`).join("\n") || "";
+
+      const snap = LS.get("kw_daily", null);
+      const activePri  = snap?.priorities?.filter(p => p.title && !p.done).map(p => p.title) || [];
+      const donePri    = snap?.completedBars?.map(b => b.title) || [];
+      const nnDone     = snap?.nn?.filter(n => n.done).map(n => n.title) || [];
+      const nnPending  = snap?.nn?.filter(n => !n.done).map(n => n.title) || [];
+
+      const taskCtx = Object.entries(tasks).flatMap(([c, list]) =>
+        list.filter(t => t.done).map(t => `${t.text} (${c}, done)`)
+      ).slice(0, 10).join(", ");
+
+      const ctx = [
+        `Time: ${getGreeting()}`,
+        activePri.length  ? `Active priorities: ${activePri.join(", ")}` : "No active priorities",
+        donePri.length    ? `Completed today: ${donePri.join(", ")}` : "",
+        nnDone.length     ? `Non-Negotiables done: ${nnDone.join(", ")}` : "",
+        nnPending.length  ? `Non-Negotiables pending: ${nnPending.join(", ")}` : "",
+        taskCtx           ? `Tasks completed recently: ${taskCtx}` : "",
+        memCtx            ? `\nMemory context:\n${memCtx}` : "",
+      ].filter(Boolean).join("\n");
+
+      const text = await callClaude(
+        `You are a grounded, observational presence. Reflect on this person's current state — what they are doing, what patterns you notice, what is unresolved. Do not motivate, encourage, or use coaching language. Be present and factual. Reference specifics from their tasks and memories. Write in plain prose, multiple paragraphs if needed. No headers, no bullets, no labels.`,
+        ctx,
+        800
+      );
+      setAiOverlayText(text);
+    } catch {
+      setAiOverlayText("Nothing to reflect on yet. Keep going.");
+    }
+    setAiOvLoading(false);
+  }
+
+  function dismissAiOverlay() {
+    if (aiOverlayLoading) return;
+    setAiOverlayExit(true);
+    setTimeout(() => { setAiOverlayOn(false); setAiOverlayExit(false); }, 400);
   }
 
   // ── AUTH HANDLERS ──────────────────────────────────────────────────────────
@@ -617,27 +664,30 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
     finally   { setAuthLoading(false); }
   }
 
-  function dismissOverlay() {
+  function dismissStartupOverlay() {
     if (overlayLoading) return;
     setOverlayExit(true);
     setTimeout(() => setOverlayOn(false), 500);
   }
 
-  // ── DRAG REORDER ───────────────────────────────────────────────────────────
+  // ── PRIORITY DRAG ──────────────────────────────────────────────────────────
 
   function cleanupDrag() {
     if (onMoveRef.current) window.removeEventListener("pointermove", onMoveRef.current);
-    if (onUpRef.current)   { window.removeEventListener("pointerup", onUpRef.current); window.removeEventListener("pointercancel", onUpRef.current); }
+    if (onUpRef.current) {
+      window.removeEventListener("pointerup", onUpRef.current);
+      window.removeEventListener("pointercancel", onUpRef.current);
+    }
     onMoveRef.current = null;
     onUpRef.current   = null;
   }
 
   function onSlotPointerDown(e, idx) {
     if (editingSlot !== -1) return;
-    if (!prioritiesRef.current[idx].title) return; // can't drag empty slot
+    if (!prioritiesRef.current[idx].title) return;
 
     const timer = setTimeout(() => {
-      dragState.current.active  = true;
+      dragState.current.active   = true;
       dragState.current.dragOver = idx;
       setDragIdx(idx);
       setDragOver(idx);
@@ -646,11 +696,11 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
       onMoveRef.current = (ev) => {
         const wrap = topWrapRef.current;
         if (!wrap) return;
-        const rect   = wrap.getBoundingClientRect();
-        const barsH  = completedBarsRef.current.length * BAR_H;
+        const rect    = wrap.getBoundingClientRect();
+        const barsH   = completedBarsRef.current.length * BAR_H;
         const activeH = rect.height - barsH;
-        const relY   = ev.clientY - rect.top - barsH;
-        const over   = Math.max(0, Math.min(2, Math.floor(relY / (activeH / 3))));
+        const relY    = ev.clientY - rect.top - barsH;
+        const over    = Math.max(0, Math.min(2, Math.floor(relY / (activeH / 3))));
         dragState.current.dragOver = over;
         setDragOver(over);
       };
@@ -682,12 +732,10 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
   }
 
   function onSlotPointerUp() {
-    // If drag never activated, just cancel the timer
     if (!dragState.current.active) {
       clearTimeout(dragState.current.timer);
       dragState.current = { active: false, startIdx: -1, dragOver: -1, timer: null };
     }
-    // If active, the global onUpRef handles it
   }
 
   // ── SLOT LOGIC ─────────────────────────────────────────────────────────────
@@ -702,7 +750,21 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
     if (editingSlot !== -1) return;
     const slot = priorities[idx];
     if (slot.title) {
-      setPriorities(p => p.map((s, i) => i === idx ? { ...s, done: !s.done } : s));
+      // Archive to completed bar, shift remaining up, open empty slot at bottom
+      const bar = {
+        id: `bar_${Date.now()}`,
+        title: slot.title,
+        sourceId: slot.sourceId,
+        sourceCat: slot.sourceCat,
+      };
+      setCompletedBars(prev => [...prev, bar]);
+      // Save task completion memory
+      if (user) saveTaskCompletionMemory(user, slot.title, slot.sourceCat || "Work");
+      setPriorities(p => {
+        const remaining = p.filter((_, i) => i !== idx);
+        return [...remaining, EMPTY_SLOT()];
+      });
+      if (navigator.vibrate) navigator.vibrate(10);
     } else {
       openSlot(idx);
     }
@@ -714,54 +776,7 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
     setEditingSlot(-1);
     if (!text) return;
 
-    // ── REPLACE A COMPLETED SLOT → becomes a minimised bar ──────────────────
-    if (existing.done) {
-      // If user committed the same text, just un-mark done instead
-      if (text === existing.title) {
-        setPriorities(p => p.map((s, i) => i === idx ? { ...s, done: false } : s));
-        return;
-      }
-
-      // Archive the done slot as a completed bar
-      const bar = {
-        id: `bar_${Date.now()}`,
-        title: existing.title,
-        sourceId: existing.sourceId,
-        sourceCat: existing.sourceCat,
-      };
-      setCompletedBars(prev => [...prev, bar]);
-
-      // Remaining slots shift up, new task lands at index 2
-      const remaining = priorities.filter((_, i) => i !== idx);
-      const newPriorities = [
-        ...remaining,
-        { title: text, done: false, sourceId: null, sourceCat: null },
-      ].slice(0, 3);
-      setPriorities(newPriorities);
-
-      // Detect category for the new task (it's at index 2)
-      setDetecting(prev => { const n = [...prev]; n[2] = true; return n; });
-      const detectedCat = await detectCategory(text);
-      setDetecting(prev => { const n = [...prev]; n[2] = false; return n; });
-
-      let taskId = `s_${Date.now()}`;
-      if (user) {
-        const { data } = await supabase.from("tasks").insert({
-          user_id: user.id, text, category: detectedCat, done: false, from_slot: true,
-        }).select().single();
-        if (data) taskId = data.id;
-      }
-
-      setPriorities(p => p.map((s, i) => i === 2 ? { ...s, sourceId: taskId, sourceCat: detectedCat } : s));
-      setTasks(p => ({
-        ...p,
-        [detectedCat]: [...(p[detectedCat] || []), { id: taskId, text, done: false, fromSlot: true }],
-      }));
-      showToast(`→ ${detectedCat}`);
-      return;
-    }
-
-    // ── NORMAL SLOT COMMIT ───────────────────────────────────────────────────
+    // Normal slot commit — if slot had a previous task, remove it from tasks
     if (existing.title && existing.sourceId && existing.sourceCat) {
       setTasks(p => ({
         ...p,
@@ -803,20 +818,21 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
     const slot = priorities[idx];
     if (!slot.title) return;
 
-    // Return the slot's task to its source category
+    // Reset any active swipe state to prevent glitch when task returns to list
+    swipeWasSwipe.current = false;
+
     if (slot.sourceId) {
       const targetCat = slot.sourceCat || "Personal";
       setTasks(tp => {
         const list   = tp[targetCat] || [];
         const exists = list.some(t => t.id === slot.sourceId);
         if (exists) return { ...tp, [targetCat]: list.map(t => t.id === slot.sourceId ? { ...t, fromSlot: false } : t) };
-        return { ...tp, [targetCat]: [...list, { id: slot.sourceId, text: slot.title, done: false }] };
+        return { ...tp, [targetCat]: [...list, { id: slot.sourceId, text: slot.title, done: false, fromSlot: false }] };
       });
       if (user) await supabase.from("tasks").update({ from_slot: false }).eq("id", slot.sourceId);
       setCat(slot.sourceCat || "Personal");
     }
 
-    // If a completed bar exists, restore it into the freed slot
     if (completedBars.length > 0) {
       const bar = completedBars[completedBars.length - 1];
       setPriorities(p => p.map((s, i) =>
@@ -840,30 +856,14 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
       setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: false } : t) }));
     }
     const emptyIdx = priorities.findIndex(s => !s.title);
-    if (emptyIdx !== -1) {
-      // Use the empty slot
-      setPriorities(p => p.map((s, i) =>
-        i === emptyIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
-      ));
-      setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: true } : t) }));
-      if (user) supabase.from("tasks").update({ from_slot: true }).eq("id", task.id);
-      if (navigator.vibrate) navigator.vibrate(10);
-      showToast(`→ priority ${emptyIdx + 1}`);
-      return;
-    }
-    // No empty slot — check for a done slot and replace it
-    const doneIdx = priorities.findIndex(s => s.done);
-    if (doneIdx === -1) { showToast("all 3 slots filled"); return; }
-    const doneSlot = priorities[doneIdx];
-    const bar = { id: `bar_${Date.now()}`, title: doneSlot.title, sourceId: doneSlot.sourceId, sourceCat: doneSlot.sourceCat };
-    setCompletedBars(prev => [...prev, bar]);
+    if (emptyIdx === -1) { showToast("all 3 slots filled"); return; }
     setPriorities(p => p.map((s, i) =>
-      i === doneIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
+      i === emptyIdx ? { title: task.text, done: false, sourceId: task.id, sourceCat: catName } : s
     ));
     setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === task.id ? { ...t, fromSlot: true } : t) }));
     if (user) supabase.from("tasks").update({ from_slot: true }).eq("id", task.id);
     if (navigator.vibrate) navigator.vibrate(10);
-    showToast(`→ priority ${doneIdx + 1}`);
+    showToast(`→ priority ${emptyIdx + 1}`);
   }
 
   function toggleTask(catName, id) {
@@ -871,7 +871,10 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
     if (!task) return;
     const newDone = !task.done;
     setTasks(p => ({ ...p, [catName]: (p[catName] || []).map(t => t.id === id ? { ...t, done: newDone } : t) }));
-    if (user) supabase.from("tasks").update({ done: newDone }).eq("id", id);
+    if (user) {
+      supabase.from("tasks").update({ done: newDone }).eq("id", id);
+      if (newDone) saveTaskCompletionMemory(user, task.text, catName);
+    }
   }
 
   async function commitAdd() {
@@ -891,113 +894,110 @@ No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"
     setAdding(false); showToast("added");
   }
 
-  // ── JOURNAL LOGIC ──────────────────────────────────────────────────────────
-
-  async function saveJournalEntry(text, type) {
-    if (!user || !text.trim()) return;
-    const { error } = await supabase.from("journal_entries").insert({
-      user_id: user.id, raw_text: text.trim(), entry_type: type,
-    });
-    if (!error) compressToMemory(text);
-  }
-
-  async function compressToMemory(text) {
-    if (!user) return;
-    try {
-      const result = await callClaude(
-        `Extract 3-5 keywords and one concise insight sentence from this journal entry.
-Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}`,
-        text, 150
-      );
-      const match = result.match(/\{[\s\S]*\}/);
-      if (!match) return;
-      const { keywords, summary } = JSON.parse(match[0]);
-      if (summary) {
-        await supabase.from("memories").insert({
-          user_id: user.id, keywords: keywords || [], summary,
-          category: "journal", memory_date: todayStr(),
-        });
-      }
-    } catch { /* silent */ }
-  }
-
-  async function submitJournal() {
-    if (!journal.trim()) { showToast("write something first"); return; }
-    setJournalSaving(true);
-    await saveJournalEntry(journal, "note");
-    setJournal("");
-    setJournalSaving(false);
-    showToast("saved");
-    if (reflQuestions.length > 0) setReflIdx(i => (i + 1) % reflQuestions.length);
-  }
-
-  async function reflect() {
-    if (!journal.trim()) { showToast("write something first"); return; }
-    setAiLoading(true); setAiOpen(true); setAiText(null);
-    try {
-      const text = await callClaude(
-        `Observational system. Plain text only.\n\nPatterns:\n[2 lines]\n\nUnresolved:\n[1-2 lines]\n\nTomorrow:\n[1-2 lines]\n\nUnder 60 words. Calm, factual.`,
-        journal
-      );
-      setAiText(text);
-    } catch { setAiText("Could not process."); }
-    setAiLoading(false);
-  }
-
-  function showToast(msg) {
-    setToast({ show: true, msg });
-    setTimeout(() => setToast({ show: false, msg: "" }), 2000);
-  }
-
-  // ── SWIPE-TO-DELETE ────────────────────────────────────────────────────────
-
   function deleteTask(catName, taskId) {
     setTasks(p => ({ ...p, [catName]: (p[catName] || []).filter(t => t.id !== taskId) }));
-    // Clear from priority slots if present
     setPriorities(p => p.map(s => s.sourceId === taskId ? EMPTY_SLOT() : s));
     if (user) supabase.from("tasks").delete().eq("id", taskId);
     showToast("deleted");
   }
 
-  function startTaskSwipe(e, task, catName) {
-    // Only handle primary pointer, and only when not inside the add row
+  // ── TASK INTERACTION (swipe-to-delete + drag-to-reorder) ──────────────────
+
+  function startTaskInteraction(e, task, taskIdx, catName) {
     if (e.button !== 0 && e.pointerType !== "touch" && e.pointerType !== "pen") return;
-    const rowEl = e.currentTarget.querySelector(".task-row");
+    const wrapEl = e.currentTarget;
+    const rowEl  = wrapEl.querySelector(".task-row");
     if (!rowEl) return;
 
-    const s = swipeRef.current;
-    s.active = true; s.startX = e.clientX; s.startY = e.clientY;
-    s.locked = false; s.translateX = 0;
-    s.taskId = task.id; s.catName = catName; s.rowEl = rowEl;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let swipeLocked   = false;
+    let dragActivated = false;
+    let translateX    = 0;
+
+    const dragTimer = setTimeout(() => {
+      if (swipeLocked) return; // already a swipe
+      dragActivated = true;
+      tdDragState.current = { active: true, startIdx: taskIdx, dragOver: taskIdx, cat: catName };
+      setTDragIdx(taskIdx);
+      setTDragOver(taskIdx);
+      if (navigator.vibrate) navigator.vibrate(20);
+    }, 400);
 
     function onMove(ev) {
-      if (!s.active) return;
-      const dx = ev.clientX - s.startX;
-      const dy = ev.clientY - s.startY;
-      if (!s.locked) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        if (Math.abs(dy) > Math.abs(dx)) { s.active = false; cleanup(); return; }
-        s.locked = true;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+
+      if (dragActivated) {
+        // Update drag-over position by scanning rendered rows
+        const list = taskListRef.current;
+        if (list) {
+          const wraps = Array.from(list.querySelectorAll(".task-swipe-wrap"));
+          let over = tdDragState.current.startIdx;
+          for (let i = 0; i < wraps.length; i++) {
+            const r = wraps[i].getBoundingClientRect();
+            if (ev.clientY >= r.top && ev.clientY <= r.bottom) { over = i; break; }
+          }
+          tdDragState.current.dragOver = over;
+          setTDragOver(over);
+        }
+        return;
       }
-      if (dx <= 0) { rowEl.style.transform = "translateX(0)"; return; }
-      s.translateX = dx;
-      rowEl.style.transform = `translateX(${dx}px)`;
+
+      // Direction lock
+      if (!swipeLocked && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+
+      if (!swipeLocked) {
+        if (Math.abs(dy) > Math.abs(dx)) {
+          // Vertical — let scroll handle it
+          clearTimeout(dragTimer);
+          cleanup();
+          return;
+        }
+        // Horizontal swipe confirmed
+        clearTimeout(dragTimer);
+        swipeLocked = true;
+      }
+
+      if (swipeLocked) {
+        if (dx <= 0) { rowEl.style.transform = "translateX(0)"; translateX = 0; return; }
+        translateX = dx;
+        rowEl.style.transform = `translateX(${dx}px)`;
+      }
     }
 
     function onUp() {
       cleanup();
-      if (!s.active) return;
-      const wasLocked = s.locked;
-      s.active = false;
-      if (!wasLocked) return;
-      swipeWasSwipe.current = true;
-      const rowWidth = rowEl.offsetWidth || 300;
-      if (s.translateX >= rowWidth * 0.9) {
-        deleteTask(s.catName, s.taskId);
-      } else {
-        rowEl.style.transition = "transform 200ms ease";
-        rowEl.style.transform  = "translateX(0)";
-        setTimeout(() => { rowEl.style.transition = ""; }, 210);
+      clearTimeout(dragTimer);
+
+      if (dragActivated) {
+        const from = tdDragState.current.startIdx;
+        const to   = tdDragState.current.dragOver;
+        if (from !== to && to >= 0) {
+          setTasks(p => {
+            const list = [...(p[catName] || [])];
+            const [moved] = list.splice(from, 1);
+            list.splice(to, 0, moved);
+            return { ...p, [catName]: list };
+          });
+        }
+        wasDraggingTask.current = true;
+        tdDragState.current = { active: false, startIdx: -1, dragOver: -1, cat: null };
+        setTDragIdx(null);
+        setTDragOver(null);
+        return;
+      }
+
+      if (swipeLocked) {
+        swipeWasSwipe.current = true;
+        const rowWidth = rowEl.offsetWidth || 300;
+        if (translateX >= rowWidth * 0.9) {
+          deleteTask(catName, task.id);
+        } else {
+          rowEl.style.transition = "transform 200ms ease";
+          rowEl.style.transform  = "translateX(0)";
+          setTimeout(() => { rowEl.style.transition = ""; }, 210);
+        }
       }
     }
 
@@ -1010,6 +1010,11 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup",   onUp);
     window.addEventListener("pointercancel", onUp);
+  }
+
+  function showToast(msg) {
+    setToast({ show: true, msg });
+    setTimeout(() => setToast({ show: false, msg: "" }), 2000);
   }
 
   const currentTasks = tasks[cat] || [];
@@ -1059,8 +1064,9 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
       <style>{CSS}</style>
       <div className="app">
 
+        {/* ── STARTUP OVERLAY ── */}
         {overlayOn && (
-          <div className={`overlay ${overlayExit ? "exit" : ""}`} onClick={dismissOverlay}>
+          <div className={`s-overlay ${overlayExit ? "exit" : ""}`} onClick={dismissStartupOverlay}>
             {overlayLoading
               ? <div className="ov-loader" />
               : <>
@@ -1076,27 +1082,47 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
           </div>
         )}
 
+        {/* ── AI OVERLAY ── */}
+        {aiOverlayOn && (
+          <div className={`ai-overlay ${aiOverlayExit ? "exit" : ""}`} onClick={dismissAiOverlay}>
+            <div className="ai-scroll" onClick={e => e.stopPropagation()}>
+              <div className="ai-tag">{getGreeting()} · reflect</div>
+              {aiOverlayLoading
+                ? <div className="ai-spin-wrap"><span className="spin-sm" /> reading...</div>
+                : <div className="ai-body-lg">{aiOverlayText}</div>
+              }
+            </div>
+            <div className="ai-dismiss">tap outside to close</div>
+          </div>
+        )}
+
+        {/* ── TOP ROW ── */}
         <div className="toprow">
           <div className="toprow-date">{TODAY}</div>
-          <div className="flip-tab">
-            <button className={`flip-btn ${topMode === "priority" ? "active" : ""}`}
-              onClick={() => setTopMode("priority")}>Daily</button>
-            <button className={`flip-btn ${topMode === "nn" ? "active" : ""}`}
-              onClick={() => setTopMode("nn")}>Non-Negotiables</button>
+          <div className="toprow-right">
+            <button className="ai-trigger-btn" onClick={openAiOverlay}>
+              {aiOverlayLoading ? <span className="spin-sm" /> : "reflect"}
+            </button>
+            <div className="flip-tab">
+              <button className={`flip-btn ${topMode === "priority" ? "active" : ""}`}
+                onClick={() => setTopMode("priority")}>Daily</button>
+              <button className={`flip-btn ${topMode === "nn" ? "active" : ""}`}
+                onClick={() => setTopMode("nn")}>Non-Negotiables</button>
+            </div>
           </div>
         </div>
 
-        {/* ── TOP SECTION — height auto, expands as bars are added ── */}
+        {/* ── TOP SECTION ── */}
         <div className="top-wrap" ref={topWrapRef}>
 
-          {/* Minimised completed bars — locked, no controls, above priority cards */}
+          {/* Completed bars stacked at top */}
           {completedBars.map(bar => (
             <div key={bar.id} className="pri-bar">
               <div className="pri-bar-text">✓ {bar.title}</div>
             </div>
           ))}
 
-          {/* Priority cards — always full height */}
+          {/* Priority cards */}
           {priorities.map((slot, i) => {
             const isEditing  = editingSlot === i;
             const isDragging = dragIdx === i;
@@ -1105,7 +1131,6 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
               <div key={i}
                 className={[
                   "pri-block",
-                  slot.title && slot.done && !isEditing ? "done" : "",
                   isEditing  ? "editing"     : "",
                   isDragging ? "dragging"    : "",
                   isTarget   ? "drag-target" : "",
@@ -1126,7 +1151,7 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
                       if (e.key === "Enter") { e.preventDefault(); commitSlot(i); }
                       if (e.key === "Escape") cancelSlot(i);
                     }}
-                    onPointerDown={e => e.stopPropagation()} // prevent drag start on input
+                    onPointerDown={e => e.stopPropagation()}
                     onBlur={() => commitSlot(i)} />
                 ) : slot.title ? (
                   <>
@@ -1156,7 +1181,7 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
             );
           })}
 
-          {/* Non-Negotiables panel — slides over priority cards */}
+          {/* Non-Negotiables panel */}
           <div className={`nn-panel ${topMode === "nn" ? "visible" : ""}`}>
             {nn.map((n, i) => (
               <div key={n.id} className={`nn-block ${n.done ? "done" : ""}`}
@@ -1168,57 +1193,8 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
           </div>
         </div>
 
-        {/* ── LOWER — shrinks naturally as top-wrap grows ── */}
+        {/* ── LOWER — full-width task list ── */}
         <div className="lower">
-
-          {/* JOURNAL COLUMN */}
-          <div className="journal-col">
-            {(reflLoading || reflQuestions.length > 0) && (
-              <div className="refl-bar"
-                onClick={() => !reflLoading && reflQuestions.length > 0 &&
-                  setReflIdx(i => (i + 1) % reflQuestions.length)}>
-                {reflLoading ? (
-                  <div className="refl-bar-loading"><span className="spin-sm" /> personalizing...</div>
-                ) : (
-                  <>
-                    <div className="refl-bar-prog">{reflIdx + 1} / {reflQuestions.length} · tap to cycle</div>
-                    <div className="refl-bar-text">{reflQuestions[reflIdx]}</div>
-                  </>
-                )}
-              </div>
-            )}
-
-            <textarea className="journal-area"
-              placeholder="Write anything..."
-              value={journal}
-              onChange={e => setJournal(e.target.value)}
-            />
-
-            <div className="journal-foot">
-              <button className="mic-btn" onClick={() => showToast("voice — coming soon")}>🎙</button>
-              <button className="reflect-btn" onClick={reflect}>
-                {aiLoading ? <span className="spin-sm" /> : "↑ reflect"}
-              </button>
-              <button className="save-btn" onClick={submitJournal}>
-                {journalSaving ? <span className="spin-sm" /> : "save"}
-              </button>
-            </div>
-
-            <div className={`ai-panel ${aiOpen ? "open" : ""}`}>
-              <div className="ai-head">
-                <div className="ai-label">Observed</div>
-                <button className="ai-back" onClick={() => setAiOpen(false)}>← back</button>
-              </div>
-              {aiLoading
-                ? <div style={{ display:"flex", gap:8, alignItems:"center", color:"var(--text-mute)", fontSize:12 }}>
-                    <span className="spin-sm" /> reading...
-                  </div>
-                : <div className="ai-body">{aiText}</div>
-              }
-            </div>
-          </div>
-
-          {/* TASK COLUMN */}
           <div className="task-col">
             <div className="cat-tabs">
               {CATS.map(c => (
@@ -1228,28 +1204,42 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
                 </button>
               ))}
             </div>
-            <div className="task-list">
+            <div className="task-list" ref={taskListRef}>
               {currentTasks.length === 0 && (
-                <div style={{ padding:"20px 12px", fontFamily:"var(--mono)", fontSize:"9px",
+                <div style={{ padding:"20px 14px", fontFamily:"var(--mono)", fontSize:"9px",
                   letterSpacing:"0.1em", color:"var(--text-mute)", lineHeight:1.7 }}>
                   no tasks yet · tap + add
                 </div>
               )}
-              {currentTasks.map(t => (
-                <div key={t.id} className="task-swipe-wrap"
-                  onPointerDown={e => startTaskSwipe(e, t, cat)}>
-                  <div className="task-delete-bg">
-                    <span className="task-delete-label">delete</span>
+              {currentTasks.map((t, tIdx) => {
+                const isTDragging = taskDragIdx === tIdx && tdDragState.current.cat === cat;
+                const isTTarget   = taskDragOver === tIdx && taskDragIdx !== null && taskDragIdx !== tIdx && tdDragState.current.cat === cat;
+                return (
+                  <div key={t.id}
+                    className={`task-swipe-wrap${isTTarget ? " tdrag-target" : ""}`}
+                    onPointerDown={e => startTaskInteraction(e, t, tIdx, cat)}>
+                    <div className="task-delete-bg">
+                      <span className="task-delete-label">delete</span>
+                    </div>
+                    <div
+                      className={[
+                        "task-row",
+                        t.done ? "done" : "",
+                        t.fromSlot && !t.done ? "assigned" : "",
+                        isTDragging ? "tdragging" : "",
+                      ].filter(Boolean).join(" ")}
+                      onClick={() => {
+                        if (wasDraggingTask.current) { wasDraggingTask.current = false; return; }
+                        if (swipeWasSwipe.current) { swipeWasSwipe.current = false; return; }
+                        tapTask(t, cat);
+                      }}>
+                      <div className="task-dot" />
+                      <div className="task-text">{t.text}</div>
+                      {!t.done && !t.fromSlot && <div className="task-up">↑</div>}
+                    </div>
                   </div>
-                  <div
-                    className={`task-row ${t.done ? "done" : ""} ${t.fromSlot && !t.done ? "assigned" : ""}`}
-                    onClick={() => { if (swipeWasSwipe.current) { swipeWasSwipe.current = false; return; } tapTask(t, cat); }}>
-                    <div className="task-dot" />
-                    <div className="task-text">{t.text}</div>
-                    {!t.done && !t.fromSlot && <div className="task-up">↑</div>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {adding ? (
                 <div className="add-row">
                   <input className="add-input" autoFocus placeholder="New task..."

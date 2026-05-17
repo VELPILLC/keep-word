@@ -145,6 +145,16 @@ const CSS = `
   /* ── LOWER ── */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
 
+  /* Reflection question bar */
+  .refl-bar { flex-shrink:0; padding:10px 14px 9px; border-bottom:1px solid var(--border);
+    min-height:38px; display:flex; flex-direction:column; justify-content:center;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .refl-bar-loading { display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:var(--text-mute); }
+  .refl-bar-prog { font-family:var(--mono); font-size:7px; letter-spacing:0.1em;
+    color:var(--text-mute); margin-bottom:4px; }
+  .refl-bar-text { font-size:11px; font-weight:300; line-height:1.5; color:var(--text-dim); }
+
   /* TASK COLUMN — full width */
   .task-col { flex:1; display:flex; flex-direction:column; min-height:0; }
   .cat-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
@@ -359,6 +369,11 @@ export default function App() {
   const [taskDragIdx, setTDragIdx]   = useState(null);
   const [taskDragOver, setTDragOver] = useState(null);
 
+  // ── REFLECTION QUESTIONS ───────────────────────────────────────────────────
+  const [reflLoading, setReflLoading]     = useState(false);
+  const [reflQuestions, setReflQuestions] = useState([]);
+  const [reflIdx, setReflIdx]             = useState(0);
+
   // ── TOAST ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState({ show: false, msg: "" });
 
@@ -456,8 +471,9 @@ export default function App() {
           setUser(session.user);
           setAuthed(true);
           const name = session.user.user_metadata?.name || session.user.email.split("@")[0];
-          await loadTasks(session.user.id);
+          const tasksData = await loadTasks(session.user.id);
           loadOverlay(session.user.id, name);
+          loadQuestions(session.user.id, tasksData);
         } else {
           setUser(null);
           setAuthed(false);
@@ -515,6 +531,73 @@ export default function App() {
       setOverlaySummary("Keep your word.\nFinish what you start.");
     }
     setOvLoading(false);
+  }
+
+  async function loadQuestions(userId, tasksData) {
+    setReflLoading(true);
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const { data: memories } = await supabase
+        .from("memories").select("summary")
+        .eq("user_id", userId).gte("memory_date", since)
+        .order("created_at", { ascending: false }).limit(10);
+
+      const recentCtx = memories?.map(m => m.summary).filter(Boolean).join(". ") || "";
+      const source    = tasksData || EMPTY_TASKS;
+      const doneTasks    = Object.entries(source).flatMap(([c, list]) => list.filter(t => t.done).map(t => `${t.text} (${c})`));
+      const pendingTasks = Object.entries(source).flatMap(([c, list]) => list.filter(t => !t.done).map(t => `${t.text} (${c})`));
+
+      const ctx = [
+        `Time of day: ${getGreeting()}`,
+        doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
+        pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
+        recentCtx           ? `Recent context (incl. daily summaries): ${recentCtx}` : "",
+      ].filter(Boolean).join("\n");
+
+      const result = await callClaude(
+        `Generate 3 to 5 specific, thoughtful reflection questions grounded in this context.
+Reference completed/pending tasks, time of day, and any patterns from recent daily summaries.
+No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"]`,
+        ctx, 400
+      );
+
+      const match = result.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("no array");
+      const questions = JSON.parse(match[0]);
+      if (Array.isArray(questions) && questions.length > 0) {
+        setReflQuestions(questions);
+        setReflIdx(0);
+      }
+    } catch { /* silent */ }
+    setReflLoading(false);
+  }
+
+  // Background journal saving (infrastructure kept; triggered by AI reflection flow)
+  async function saveJournalEntry(text, type) {
+    if (!user || !text.trim()) return;
+    await supabase.from("journal_entries").insert({
+      user_id: user.id, raw_text: text.trim(), entry_type: type,
+    });
+  }
+
+  async function compressToMemory(text) {
+    if (!user) return;
+    try {
+      const result = await callClaude(
+        `Extract 3-5 keywords and one concise insight sentence from this journal entry.
+Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}`,
+        text, 150
+      );
+      const match = result.match(/\{[\s\S]*\}/);
+      if (!match) return;
+      const { keywords, summary } = JSON.parse(match[0]);
+      if (summary) {
+        await supabase.from("memories").insert({
+          user_id: user.id, keywords: keywords || [], summary,
+          category: "journal", memory_date: todayStr(),
+        });
+      }
+    } catch { /* silent */ }
   }
 
   // ── MEMORY WRITES ──────────────────────────────────────────────────────────
@@ -1196,6 +1279,23 @@ export default function App() {
         {/* ── LOWER — full-width task list ── */}
         <div className="lower">
           <div className="task-col">
+
+            {/* Reflection question bar — cycles through AI questions */}
+            {(reflLoading || reflQuestions.length > 0) && (
+              <div className="refl-bar"
+                onClick={() => !reflLoading && reflQuestions.length > 0 &&
+                  setReflIdx(i => (i + 1) % reflQuestions.length)}>
+                {reflLoading ? (
+                  <div className="refl-bar-loading"><span className="spin-sm" /> personalizing...</div>
+                ) : (
+                  <>
+                    <div className="refl-bar-prog">{reflIdx + 1} / {reflQuestions.length} · tap to cycle</div>
+                    <div className="refl-bar-text">{reflQuestions[reflIdx]}</div>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="cat-tabs">
               {CATS.map(c => (
                 <button key={c} className={`cat-tab ${cat === c ? "active" : ""}`}

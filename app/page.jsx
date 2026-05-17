@@ -16,8 +16,8 @@ const CSS = `
   :root {
     --bg:#241712; --border:#3E2919; --text:#E4D9CF; --text-dim:#9A8878;
     --text-mute:#614838; --accent:#D4A246; --red:#8B3A3A;
-    --done-bg:#1B2B1B; --done-text:#527252; --nn-bg:#2D1F3D;
-    --nn-border:#6B4FA0; --input-bg:#2A1C10;
+    --done-bg:#1B2B1B; --done-text:#527252; --nn-bg:#3D1F5C;
+    --nn-border:#7B4FA0; --input-bg:#2A1C10;
     --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --tr:140ms ease;
   }
   html { height:100%; width:100%; overflow:hidden; position:fixed; top:0; left:0;
@@ -137,23 +137,67 @@ const CSS = `
     transition:opacity var(--tr); }
   .nn-block.done { opacity:0.4; }
   .nn-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
-    color:#6B4FA0; margin-bottom:4px; }
+    color:#7B4FA0; margin-bottom:4px; }
   .nn-title { font-size:clamp(14px,3.6vw,19px); font-weight:400; line-height:1.2;
-    color:#B8A0D8; letter-spacing:-0.01em; }
-  .nn-block.done .nn-title { text-decoration:line-through; color:#6B4FA0; }
+    color:#C4A0E8; letter-spacing:-0.01em; }
+  .nn-block.done .nn-title { text-decoration:line-through; color:#7B4FA0; }
 
   /* ── LOWER ── */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
 
-  /* Reflection question bar */
-  .refl-bar { flex-shrink:0; padding:10px 14px 9px; border-bottom:1px solid var(--border);
-    min-height:38px; display:flex; flex-direction:column; justify-content:center;
+  /* Reflection trigger bar */
+  .refl-trigger { flex-shrink:0; padding:9px 14px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px; min-height:36px;
     cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-  .refl-bar-loading { display:flex; align-items:center; gap:8px;
-    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:var(--text-mute); }
-  .refl-bar-prog { font-family:var(--mono); font-size:7px; letter-spacing:0.1em;
-    color:var(--text-mute); margin-bottom:4px; }
-  .refl-bar-text { font-size:11px; font-weight:300; line-height:1.5; color:var(--text-dim); }
+  .refl-trigger-tag { font-family:var(--mono); font-size:7px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--text-mute); flex-shrink:0; }
+  .refl-trigger-q { font-size:11px; font-weight:300; color:var(--text-dim);
+    flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.4; }
+  .refl-trigger-loading { display:flex; align-items:center; gap:6px;
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; color:var(--text-mute); flex:1; }
+
+  /* Reflection panel overlay */
+  .refl-panel { position:fixed; inset:0; background:var(--bg); z-index:80;
+    display:flex; flex-direction:column; opacity:1; transition:opacity 300ms ease; }
+  .refl-panel.exit { opacity:0; pointer-events:none; }
+  .refl-ph { display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .refl-ph-label { font-family:var(--mono); font-size:8px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-mute); }
+  .refl-close { background:none; border:none; font-family:var(--mono); font-size:10px;
+    letter-spacing:0.06em; color:var(--text-mute); cursor:pointer; padding:6px 4px;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .refl-q-area { flex:1; padding:28px 24px 16px; cursor:pointer;
+    touch-action:manipulation; display:flex; flex-direction:column; overflow:hidden; }
+  .refl-q-counter { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
+    color:var(--text-mute); margin-bottom:18px; }
+  .refl-q-text { font-size:clamp(17px,4.4vw,24px); font-weight:300; line-height:1.45;
+    color:var(--text); letter-spacing:-0.015em; }
+  .refl-q-hint { font-family:var(--mono); font-size:8px; letter-spacing:0.08em;
+    color:var(--text-mute); margin-top:auto; padding-top:20px; }
+  .refl-input-wrap { flex-shrink:0; border-top:1px solid var(--border); }
+  .refl-textarea { width:100%; background:none; border:none; outline:none;
+    font-family:var(--font); font-size:15px; font-weight:300; line-height:1.6;
+    color:var(--text); padding:14px 16px; resize:none; min-height:72px; max-height:160px;
+    overflow-y:auto; caret-color:var(--accent); user-select:text; touch-action:auto;
+    display:block; }
+  .refl-textarea::placeholder { color:var(--text-mute); }
+  .refl-foot { display:flex; align-items:center; padding:8px 12px;
+    border-top:1px solid var(--border); gap:8px; flex-shrink:0; }
+  .refl-mic { background:none; border:none; padding:5px 8px; color:var(--text-mute);
+    font-size:17px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation; line-height:1; transition:color var(--tr); }
+  .refl-mic.listening { color:var(--accent); }
+  @keyframes mic-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  .refl-mic.listening { animation:mic-pulse 900ms ease infinite; }
+  .refl-nav { display:flex; align-items:center; gap:2px; }
+  .refl-nav-btn { background:none; border:none; font-family:var(--mono); font-size:11px;
+    color:var(--text-mute); cursor:pointer; padding:5px 9px;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .refl-save { background:none; border:1px solid var(--accent); color:var(--accent);
+    font-family:var(--mono); font-size:8px; letter-spacing:0.1em; padding:6px 14px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    margin-left:auto; }
 
   /* TASK COLUMN — full width */
   .task-col { flex:1; display:flex; flex-direction:column; min-height:0; }
@@ -369,10 +413,16 @@ export default function App() {
   const [taskDragIdx, setTDragIdx]   = useState(null);
   const [taskDragOver, setTDragOver] = useState(null);
 
-  // ── REFLECTION QUESTIONS ───────────────────────────────────────────────────
+  // ── REFLECTION QUESTIONS + PANEL ───────────────────────────────────────────
   const [reflLoading, setReflLoading]     = useState(false);
   const [reflQuestions, setReflQuestions] = useState([]);
   const [reflIdx, setReflIdx]             = useState(0);
+  const [reflOpen, setReflOpen]           = useState(false);
+  const [reflExit, setReflExit]           = useState(false);
+  const [reflInput, setReflInput]         = useState("");
+  const [reflListening, setReflListening] = useState(false);
+  const [reflSaving, setReflSaving]       = useState(false);
+  const [speechOk, setSpeechOk]           = useState(false);
 
   // ── TOAST ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState({ show: false, msg: "" });
@@ -397,12 +447,33 @@ export default function App() {
   const swipeWasSwipe    = useRef(false);
   const hiddenAtRef      = useRef(null);
   const userRef          = useRef(null); // stable ref to user for visibilitychange
+  const recognitionRef   = useRef(null);
 
   // Keep mirrors in sync
   useEffect(() => { completedBarsRef.current = completedBars; }, [completedBars]);
   useEffect(() => { prioritiesRef.current = priorities; }, [priorities]);
   useEffect(() => { addTextRef.current = addText; }, [addText]);
   useEffect(() => { userRef.current = user; }, [user]);
+
+  // ── SPEECH RECOGNITION SETUP ───────────────────────────────────────────────
+  useEffect(() => {
+    const SR = (typeof window !== "undefined") &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) return;
+    setSpeechOk(true);
+    const r = new SR();
+    r.continuous = false;
+    r.interimResults = false;
+    r.lang = "en-US";
+    r.onresult = (e) => {
+      const transcript = Array.from(e.results).map(res => res[0].transcript).join(" ");
+      setReflInput(prev => prev ? prev.trimEnd() + " " + transcript : transcript);
+      setReflListening(false);
+    };
+    r.onend  = () => setReflListening(false);
+    r.onerror = () => setReflListening(false);
+    recognitionRef.current = r;
+  }, []);
 
   // Persist NN
   useEffect(() => { LS.set("kw_nn", nn); }, [nn]);
@@ -533,8 +604,28 @@ export default function App() {
     setOvLoading(false);
   }
 
+  function getFallbackQuestions() {
+    const h = new Date().getHours();
+    if (h < 12) return [
+      "What's the one thing that would make today a success?",
+      "What are you avoiding that you know you shouldn't be?",
+      "What does your energy need right now?",
+    ];
+    if (h < 17) return [
+      "What has gone well so far today?",
+      "What's still unresolved that needs your attention?",
+      "Are you spending time on what actually matters?",
+    ];
+    return [
+      "What did you actually accomplish today?",
+      "What will you carry into tomorrow unresolved?",
+      "Did you keep your word to yourself today?",
+    ];
+  }
+
   async function loadQuestions(userId, tasksData) {
     setReflLoading(true);
+    let loaded = false;
     try {
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       const { data: memories } = await supabase
@@ -551,24 +642,29 @@ export default function App() {
         `Time of day: ${getGreeting()}`,
         doneTasks.length    ? `Completed: ${doneTasks.slice(0, 5).join(", ")}` : "",
         pendingTasks.length ? `Still pending: ${pendingTasks.slice(0, 5).join(", ")}` : "",
-        recentCtx           ? `Recent context (incl. daily summaries): ${recentCtx}` : "",
+        recentCtx           ? `Recent context: ${recentCtx}` : "",
       ].filter(Boolean).join("\n");
 
       const result = await callClaude(
-        `Generate 3 to 5 specific, thoughtful reflection questions grounded in this context.
-Reference completed/pending tasks, time of day, and any patterns from recent daily summaries.
-No generic questions. Return valid JSON array only: ["Question 1?","Question 2?"]`,
-        ctx, 400
+        `Return a JSON array of 3 short, specific reflection questions based on this context. No preamble, no explanation — ONLY the JSON array. Example format: ["Question one?","Question two?","Question three?"]`,
+        ctx, 300
       );
 
-      const match = result.match(/\[[\s\S]*\]/);
-      if (!match) throw new Error("no array");
-      const questions = JSON.parse(match[0]);
-      if (Array.isArray(questions) && questions.length > 0) {
-        setReflQuestions(questions);
-        setReflIdx(0);
+      const match = result.match(/\[[\s\S]*?\]/);
+      if (match) {
+        const questions = JSON.parse(match[0]);
+        if (Array.isArray(questions) && questions.length > 0) {
+          setReflQuestions(questions);
+          setReflIdx(0);
+          loaded = true;
+        }
       }
-    } catch { /* silent */ }
+    } catch { /* fall through to fallback */ }
+
+    if (!loaded) {
+      setReflQuestions(getFallbackQuestions());
+      setReflIdx(0);
+    }
     setReflLoading(false);
   }
 
@@ -722,6 +818,45 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
     if (aiOverlayLoading) return;
     setAiOverlayExit(true);
     setTimeout(() => { setAiOverlayOn(false); setAiOverlayExit(false); }, 400);
+  }
+
+  // ── REFLECTION PANEL ───────────────────────────────────────────────────────
+
+  function openReflPanel() {
+    if (reflLoading || reflQuestions.length === 0) return;
+    setReflInput("");
+    setReflExit(false);
+    setReflOpen(true);
+  }
+
+  function closeReflPanel() {
+    setReflExit(true);
+    setTimeout(() => { setReflOpen(false); setReflExit(false); }, 320);
+  }
+
+  async function submitReflection() {
+    const text = reflInput.trim();
+    if (!text) { closeReflPanel(); return; }
+    setReflSaving(true);
+    await saveJournalEntry(text, "reflection");
+    compressToMemory(text);
+    setReflSaving(false);
+    setReflInput("");
+    setReflIdx(i => (i + 1) % Math.max(reflQuestions.length, 1));
+    closeReflPanel();
+    showToast("saved");
+  }
+
+  function startListening() {
+    if (!recognitionRef.current || reflListening) return;
+    setReflListening(true);
+    try { recognitionRef.current.start(); } catch { setReflListening(false); }
+  }
+
+  function stopListening() {
+    if (!recognitionRef.current) return;
+    try { recognitionRef.current.stop(); } catch {}
+    setReflListening(false);
   }
 
   // ── AUTH HANDLERS ──────────────────────────────────────────────────────────
@@ -901,8 +1036,16 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
     const slot = priorities[idx];
     if (!slot.title) return;
 
-    // Reset any active swipe state to prevent glitch when task returns to list
+    // Reset any active swipe state and clear residual transform on all task rows
     swipeWasSwipe.current = false;
+    requestAnimationFrame(() => {
+      if (taskListRef.current) {
+        taskListRef.current.querySelectorAll(".task-row").forEach(el => {
+          el.style.transform  = "";
+          el.style.transition = "";
+        });
+      }
+    });
 
     if (slot.sourceId) {
       const targetCat = slot.sourceCat || "Personal";
@@ -1280,19 +1423,66 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
         <div className="lower">
           <div className="task-col">
 
-            {/* Reflection question bar — cycles through AI questions */}
-            {(reflLoading || reflQuestions.length > 0) && (
-              <div className="refl-bar"
-                onClick={() => !reflLoading && reflQuestions.length > 0 &&
-                  setReflIdx(i => (i + 1) % reflQuestions.length)}>
-                {reflLoading ? (
-                  <div className="refl-bar-loading"><span className="spin-sm" /> personalizing...</div>
-                ) : (
-                  <>
-                    <div className="refl-bar-prog">{reflIdx + 1} / {reflQuestions.length} · tap to cycle</div>
-                    <div className="refl-bar-text">{reflQuestions[reflIdx]}</div>
-                  </>
-                )}
+            {/* Reflection trigger bar — tap to open panel */}
+            <div className="refl-trigger" onClick={openReflPanel}>
+              <span className="refl-trigger-tag">reflect</span>
+              {reflLoading ? (
+                <div className="refl-trigger-loading"><span className="spin-sm" /> reading...</div>
+              ) : reflQuestions.length > 0 ? (
+                <div className="refl-trigger-q">{reflQuestions[reflIdx]}</div>
+              ) : null}
+            </div>
+
+            {/* Reflection panel overlay */}
+            {reflOpen && (
+              <div className={`refl-panel${reflExit ? " exit" : ""}`}>
+                {/* Header */}
+                <div className="refl-ph">
+                  <span className="refl-ph-label">Reflection</span>
+                  <button className="refl-close" onClick={closeReflPanel}>close</button>
+                </div>
+                {/* Question area — tap anywhere here to close */}
+                <div className="refl-q-area" onClick={closeReflPanel}>
+                  {reflQuestions.length > 0 && (
+                    <>
+                      <div className="refl-q-counter">{reflIdx + 1} / {reflQuestions.length}</div>
+                      <div className="refl-q-text">{reflQuestions[reflIdx]}</div>
+                      <div className="refl-q-hint">tap to close · use arrows to cycle</div>
+                    </>
+                  )}
+                </div>
+                {/* Input area — stops propagation so typing doesn't close panel */}
+                <div className="refl-input-wrap" onClick={e => e.stopPropagation()}>
+                  <textarea className="refl-textarea"
+                    placeholder="Write your answer..."
+                    value={reflInput}
+                    rows={3}
+                    onChange={e => setReflInput(e.target.value)} />
+                </div>
+                {/* Footer: mic, prev/next, save */}
+                <div className="refl-foot" onClick={e => e.stopPropagation()}>
+                  {speechOk && (
+                    <button
+                      className={`refl-mic${reflListening ? " listening" : ""}`}
+                      onPointerDown={e => { e.preventDefault(); reflListening ? stopListening() : startListening(); }}>
+                      🎙
+                    </button>
+                  )}
+                  <div className="refl-nav">
+                    <button className="refl-nav-btn"
+                      onPointerDown={e => { e.preventDefault(); setReflIdx(i => (i - 1 + reflQuestions.length) % reflQuestions.length); }}>
+                      ←
+                    </button>
+                    <button className="refl-nav-btn"
+                      onPointerDown={e => { e.preventDefault(); setReflIdx(i => (i + 1) % reflQuestions.length); }}>
+                      →
+                    </button>
+                  </div>
+                  <button className="refl-save" disabled={reflSaving}
+                    onPointerDown={e => { e.preventDefault(); submitReflection(); }}>
+                    {reflSaving ? <span className="spin-sm" /> : "save"}
+                  </button>
+                </div>
               </div>
             )}
 

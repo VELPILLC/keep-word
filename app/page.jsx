@@ -16,8 +16,8 @@ const CSS = `
   :root {
     --bg:#241712; --border:#3E2919; --text:#E4D9CF; --text-dim:#9A8878;
     --text-mute:#614838; --accent:#D4A246; --red:#8B3A3A;
-    --done-bg:#1B2B1B; --done-text:#527252; --nn-bg:#1E1B19;
-    --nn-border:#231E1B; --input-bg:#2A1C10;
+    --done-bg:#1B2B1B; --done-text:#527252; --nn-bg:#2D1F3D;
+    --nn-border:#6B4FA0; --input-bg:#2A1C10;
     --font:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --tr:140ms ease;
   }
   html { height:100%; width:100%; overflow:hidden; position:fixed; top:0; left:0;
@@ -137,10 +137,10 @@ const CSS = `
     transition:opacity var(--tr); }
   .nn-block.done { opacity:0.4; }
   .nn-num { font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
-    color:#2C2725; margin-bottom:4px; }
+    color:#6B4FA0; margin-bottom:4px; }
   .nn-title { font-size:clamp(14px,3.6vw,19px); font-weight:400; line-height:1.2;
-    color:#504846; letter-spacing:-0.01em; }
-  .nn-block.done .nn-title { text-decoration:line-through; color:#2C2725; }
+    color:#B8A0D8; letter-spacing:-0.01em; }
+  .nn-block.done .nn-title { text-decoration:line-through; color:#6B4FA0; }
 
   /* ── LOWER ── */
   .lower { flex:1; display:flex; min-height:0; border-top:1px solid var(--border); }
@@ -1074,7 +1074,7 @@ Return valid JSON only: {"keywords":["word1","word2"],"summary":"One sentence."}
       if (swipeLocked) {
         swipeWasSwipe.current = true;
         const rowWidth = rowEl.offsetWidth || 300;
-        if (translateX >= rowWidth * 0.9) {
+        if (translateX >= rowWidth * 0.7) {
           deleteTask(catName, task.id);
         } else {
           rowEl.style.transition = "transform 200ms ease";
